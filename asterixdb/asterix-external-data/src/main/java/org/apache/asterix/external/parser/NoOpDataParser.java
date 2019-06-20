@@ -16,48 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.external.input.record;
+package org.apache.asterix.external.parser;
+
+import java.io.DataOutput;
+import java.io.IOException;
 
 import org.apache.asterix.external.api.IRawRecord;
+import org.apache.asterix.external.api.IRecordDataParser;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.data.std.api.IValueReference;
 
-public class GenericRecord<T> implements IRawRecord<T> {
-
-    protected T record;
-
-    public GenericRecord() {
-    }
-
-    public GenericRecord(T record) {
-        this.record = record;
-    }
+public class NoOpDataParser implements IRecordDataParser<IValueReference> {
 
     @Override
-    public byte[] getBytes() {
-        return null;
-    }
-
-    @Override
-    public T get() {
-        return record;
-    }
-
-    @Override
-    public int size() {
-        return -1;
-    }
-
-    @Override
-    public void set(T record) {
-        this.record = record;
-    }
-
-    @Override
-    public void reset() {
-        //no-op
-    }
-
-    @Override
-    public String toString() {
-        return record == null ? null : record.toString();
+    public void parse(IRawRecord<? extends IValueReference> record, DataOutput out) throws HyracksDataException {
+        try {
+            out.write(record.getBytes(), 0, record.size());
+        } catch (IOException e) {
+            throw HyracksDataException.create(e);
+        }
     }
 }

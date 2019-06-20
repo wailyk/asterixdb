@@ -33,6 +33,7 @@ import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.external.indexing.ExternalFile;
 import org.apache.asterix.external.indexing.IndexingScheduler;
 import org.apache.asterix.external.indexing.RecordId.RecordIdType;
+import org.apache.asterix.external.input.record.reader.hdfs.parquet.ParquetReadSupport;
 import org.apache.asterix.external.input.stream.HDFSInputStream;
 import org.apache.asterix.hivecompat.io.RCFileInputFormat;
 import org.apache.hadoop.fs.BlockLocation;
@@ -51,6 +52,8 @@ import org.apache.hyracks.api.context.ICCContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.hdfs.scheduler.Scheduler;
+import org.apache.parquet.hadoop.ParquetInputFormat;
+import org.apache.parquet.hadoop.mapred.DeprecatedParquetInputFormat;
 
 public class HDFSUtils {
 
@@ -167,6 +170,8 @@ public class HDFSUtils {
                 return ExternalDataConstants.CLASS_NAME_SEQUENCE_INPUT_FORMAT;
             case ExternalDataConstants.INPUT_FORMAT_RC:
                 return ExternalDataConstants.CLASS_NAME_RC_INPUT_FORMAT;
+            case ExternalDataConstants.INPUT_FORMAT_PARQUET:
+                return ExternalDataConstants.CLASS_NAME_PARQUET_INPUT_FORMAT;
             default:
                 return inputFormatParameter;
         }
@@ -181,6 +186,8 @@ public class HDFSUtils {
                 return SequenceFileInputFormat.class;
             case ExternalDataConstants.INPUT_FORMAT_RC:
                 return RCFileInputFormat.class;
+            case ExternalDataConstants.INPUT_FORMAT_PARQUET:
+                return DeprecatedParquetInputFormat.class;
             default:
                 return Class.forName(inputFormatParameter);
         }
@@ -191,17 +198,32 @@ public class HDFSUtils {
 
         String localShortCircuitSocketPath = configuration.get(ExternalDataConstants.KEY_LOCAL_SOCKET_PATH);
         String formatClassName = HDFSUtils.getInputFormatClassName(configuration);
-        conf.set(ExternalDataConstants.KEY_HADOOP_FILESYSTEM_URI,
-                configuration.get(ExternalDataConstants.KEY_HDFS_URL).trim());
-        conf.set(ExternalDataConstants.KEY_HADOOP_FILESYSTEM_CLASS, ExternalDataConstants.CLASS_NAME_HDFS_FILESYSTEM);
-        conf.setClassLoader(HDFSInputStream.class.getClassLoader());
+        final String url = configuration.get(ExternalDataConstants.KEY_HDFS_URL);
+        if (url != null && url.trim().startsWith("hdfs")) {
+            conf.set(ExternalDataConstants.KEY_HADOOP_FILESYSTEM_CLASS,
+                    ExternalDataConstants.CLASS_NAME_HDFS_FILESYSTEM);
+            conf.set(ExternalDataConstants.KEY_HADOOP_FILESYSTEM_URI, url);
+        }
         conf.set(ExternalDataConstants.KEY_HADOOP_INPUT_DIR, configuration.get(ExternalDataConstants.KEY_PATH).trim());
+        conf.setClassLoader(HDFSInputStream.class.getClassLoader());
         conf.set(ExternalDataConstants.KEY_HADOOP_INPUT_FORMAT, formatClassName);
 
         // Enable local short circuit reads if user supplied the parameters
         if (localShortCircuitSocketPath != null) {
             conf.set(ExternalDataConstants.KEY_HADOOP_SHORT_CIRCUIT, "true");
             conf.set(ExternalDataConstants.KEY_HADOOP_SOCKET_PATH, localShortCircuitSocketPath.trim());
+        }
+
+        if (formatClassName == ExternalDataConstants.CLASS_NAME_PARQUET_INPUT_FORMAT) {
+            //AsterixDB configurations
+            configuration.put(ExternalDataConstants.KEY_FORMAT, ExternalDataConstants.FORMAT_NOOP);
+            configuration.put(ExternalDataConstants.KEY_FIELD_ACCESS_PUSHDOWN, "true");
+            configuration.put(ExternalDataConstants.KEY_FILTER_PUSHDOWN, "true");
+
+            //Parquet configurations
+            conf.set(ParquetInputFormat.READ_SUPPORT_CLASS, ParquetReadSupport.class.getName());
+            //What are the requested fields? Default (*) which means all fields
+            conf.set(ExternalDataConstants.KEY_REQUESTED_FIELDS, "*");
         }
         return conf;
     }
