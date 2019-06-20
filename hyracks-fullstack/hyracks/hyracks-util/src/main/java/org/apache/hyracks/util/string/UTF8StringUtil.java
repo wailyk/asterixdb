@@ -643,6 +643,17 @@ public class UTF8StringUtil {
         out.write(tempBytes, 0, count);
     }
 
+    /**
+     * Write the encoded length of a string
+     */
+    public static void writeEncodedLength(int length, DataOutput out, UTF8StringWriter writer) throws IOException {
+
+        byte[] tempBytes = getTempBytes(writer, length);
+        int count = VarLenIntEncoderDecoder.encode(length, tempBytes, 0);
+
+        out.write(tempBytes, 0, count);
+    }
+
     private static int writeToBytes(byte[] tempBytes, int count, char c) {
         int orig = count;
         if ((c >= 0x0001) && (c <= 0x007F)) {

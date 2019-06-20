@@ -34,7 +34,7 @@ import org.apache.asterix.external.api.IRecordReaderFactory;
 import org.apache.asterix.external.indexing.ExternalFile;
 import org.apache.asterix.external.indexing.IndexingScheduler;
 import org.apache.asterix.external.input.record.reader.IndexingStreamRecordReader;
-import org.apache.asterix.external.input.record.reader.hdfs.HDFSRecordReader;
+import org.apache.asterix.external.input.record.reader.hdfs.AbstractHDFSRecordReader;
 import org.apache.asterix.external.input.record.reader.stream.StreamRecordReader;
 import org.apache.asterix.external.input.stream.HDFSInputStream;
 import org.apache.asterix.external.provider.ExternalIndexerProvider;
@@ -105,7 +105,8 @@ public class HDFSDataSourceFactory implements IRecordReaderFactory<Object>, IInd
             read = new boolean[readSchedule.length];
             Arrays.fill(read, false);
             String formatString = configuration.get(ExternalDataConstants.KEY_FORMAT);
-            if (formatString == null || formatString.equals(ExternalDataConstants.FORMAT_HDFS_WRITABLE)) {
+            if (formatString == null || formatString.equals(ExternalDataConstants.FORMAT_HDFS_WRITABLE)
+                    || formatString.equals(ExternalDataConstants.FORMAT_NOOP)) {
                 RecordReader<?, ?> reader = conf.getInputFormat().getRecordReader(inputSplits[0], conf, Reporter.NULL);
                 this.recordClass = reader.createValue().getClass();
                 reader.close();
@@ -213,7 +214,8 @@ public class HDFSDataSourceFactory implements IRecordReaderFactory<Object>, IInd
                 }
             }
             restoreConfig(ctx);
-            return new HDFSRecordReader<>(read, inputSplits, readSchedule, nodeName, conf, files, indexer);
+            return AbstractHDFSRecordReader.createRecordReader(configuration, read, inputSplits, readSchedule, nodeName,
+                    conf, files, indexer);
         } catch (Exception e) {
             throw HyracksDataException.create(e);
         }

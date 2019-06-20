@@ -19,36 +19,24 @@
 package org.apache.asterix.external.input.record;
 
 import org.apache.asterix.external.api.IRawRecord;
+import org.apache.hyracks.data.std.api.IValueReference;
 
-public class GenericRecord<T> implements IRawRecord<T> {
-
-    protected T record;
-
-    public GenericRecord() {
-    }
-
-    public GenericRecord(T record) {
-        this.record = record;
-    }
+public class ValueReferenceRecord<V extends IValueReference> implements IRawRecord<V> {
+    private V record;
 
     @Override
     public byte[] getBytes() {
-        return null;
-    }
-
-    @Override
-    public T get() {
-        return record;
+        return record.getByteArray();
     }
 
     @Override
     public int size() {
-        return -1;
+        return record.getLength();
     }
 
     @Override
-    public void set(T record) {
-        this.record = record;
+    public V get() {
+        return record;
     }
 
     @Override
@@ -57,7 +45,7 @@ public class GenericRecord<T> implements IRawRecord<T> {
     }
 
     @Override
-    public String toString() {
-        return record == null ? null : record.toString();
+    public void set(V t) {
+        record = t;
     }
 }

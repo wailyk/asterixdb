@@ -27,6 +27,7 @@ import org.apache.asterix.builders.IARecordBuilder;
 import org.apache.asterix.builders.IAsterixListBuilder;
 import org.apache.asterix.builders.ListBuilderFactory;
 import org.apache.asterix.builders.RecordBuilderFactory;
+import org.apache.asterix.dataflow.data.nontagged.serde.AStringSerializerDeserializer;
 import org.apache.asterix.external.parser.AbstractNestedDataParser;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
 import org.apache.asterix.om.base.AMutableString;
@@ -39,6 +40,8 @@ import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IMutableValueStorage;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
+import org.apache.hyracks.util.string.UTF8StringReader;
+import org.apache.hyracks.util.string.UTF8StringWriter;
 
 /**
  * A state class that helps parsers of class {@link AbstractNestedDataParser} to maintain
@@ -61,6 +64,7 @@ public class ParserContext {
     private final ObjectPool<BitSet, Void> nullBitmapPool;
     private final Map<String, IMutableValueStorage> serializedFieldNames;
     private final ISerializerDeserializer<AString> stringSerDe;
+    private final AStringSerializerDeserializer nonTaggedStringSerDe;
     private final AMutableString aString;
 
     @SuppressWarnings("unchecked")
@@ -71,6 +75,7 @@ public class ParserContext {
         nullBitmapPool = new ObjectPool<>();
         serializedFieldNames = new LRUMap<>(SERIALIZED_FIELDNAME_MAP_MAX_SIZE);
         stringSerDe = SerializerDeserializerProvider.INSTANCE.getAStringSerializerDeserializer();
+        nonTaggedStringSerDe = new AStringSerializerDeserializer(new UTF8StringWriter(), new UTF8StringReader());
         aString = new AMutableString("");
     }
 
@@ -138,6 +143,10 @@ public class ParserContext {
     public void exitCollection(IMutableValueStorage tempBuffer, IAsterixListBuilder builder) {
         tempBufferPool.recycle(tempBuffer);
         arrayBuilderPool.recycle(builder);
+    }
+
+    public AStringSerializerDeserializer getStringSerializerDeserializer() {
+        return nonTaggedStringSerDe;
     }
 
 }

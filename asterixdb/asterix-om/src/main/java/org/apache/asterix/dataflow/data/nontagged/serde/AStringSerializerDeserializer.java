@@ -73,4 +73,8 @@ public class AStringSerializerDeserializer implements ISerializerDeserializer<AS
     public void serialize(char[] buffer, int start, int length, DataOutput out) throws IOException {
         UTF8StringUtil.writeUTF8(buffer, start, length, out, utf8StringWriter);
     }
+
+    public void serializeEncodedLength(int length, DataOutput out) throws IOException {
+        UTF8StringUtil.writeEncodedLength(length, out, utf8StringWriter);
+    }
 }
