@@ -320,6 +320,22 @@ public final class FunctionTypeInferers {
         }
     }
 
+    public static final class ForEachTypeInferer implements IFunctionTypeInferer {
+
+        @Override
+        public void infer(ILogicalExpression expr, IFunctionDescriptor fd, IVariableTypeEnvironment context,
+                CompilerProperties compilerProps) throws AlgebricksException {
+            AbstractFunctionCallExpression f = (AbstractFunctionCallExpression) expr;
+            IAType inputType = (IAType) context.getType(f.getArguments().get(0).getValue());
+            IAType outputType = (IAType) context.getType(expr);
+            if (inputType.getTypeTag() == ATypeTag.ANY) {
+                inputType = DefaultOpenFieldType.NESTED_OPEN_AORDERED_LIST_TYPE;
+            }
+            fd.setImmutableStates(inputType, outputType);
+        }
+
+    }
+
     private static IAType[] getArgumentsTypes(AbstractFunctionCallExpression funExp, IVariableTypeEnvironment ctx)
             throws AlgebricksException {
         IAType[] argsTypes = new IAType[funExp.getArguments().size()];

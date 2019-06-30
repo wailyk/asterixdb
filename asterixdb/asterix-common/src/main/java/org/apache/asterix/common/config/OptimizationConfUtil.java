@@ -59,6 +59,7 @@ public class OptimizationConfUtil {
         int textSearchFrameLimit = getTextSearchNumFrames(compilerProperties, querySpecificConfig, sourceLoc);
         int sortNumSamples = getSortSamples(compilerProperties, querySpecificConfig, sourceLoc);
         boolean fullParallelSort = getSortParallel(compilerProperties, querySpecificConfig);
+        boolean expressionPushdowns = getExpressionPushdowns(compilerProperties, querySpecificConfig);
 
         PhysicalOptimizationConfig physOptConf = new PhysicalOptimizationConfig();
         physOptConf.setFrameSize(frameSize);
@@ -69,6 +70,7 @@ public class OptimizationConfUtil {
         physOptConf.setMaxFramesForTextSearch(textSearchFrameLimit);
         physOptConf.setSortParallel(fullParallelSort);
         physOptConf.setSortSamples(sortNumSamples);
+        physOptConf.setExpressionPushdowns(expressionPushdowns);
 
         return physOptConf;
     }
@@ -115,6 +117,15 @@ public class OptimizationConfUtil {
             return OptionTypes.BOOLEAN.parse(valueInQuery);
         }
         return compilerProperties.getSortParallel();
+    }
+
+    private static boolean getExpressionPushdowns(CompilerProperties compilerProperties,
+            Map<String, Object> querySpecificConfig) {
+        String valueInQuery = (String) querySpecificConfig.get(CompilerProperties.COMPILER_EXPRESSION_PUSHDOWNS_KEY);
+        if (valueInQuery != null) {
+            return OptionTypes.BOOLEAN.parse(valueInQuery);
+        }
+        return compilerProperties.getExpressionPushdowns();
     }
 
     @SuppressWarnings("squid:S1166") // Either log or rethrow this exception

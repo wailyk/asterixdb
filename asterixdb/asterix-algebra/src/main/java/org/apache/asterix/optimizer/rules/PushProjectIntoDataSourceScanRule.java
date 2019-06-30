@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.hyracks.algebricks.rewriter.rules;
+package org.apache.asterix.optimizer.rules;
 
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -24,7 +24,7 @@ import org.apache.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractScanOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.ProjectOperator;
 import org.apache.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 
@@ -39,26 +39,30 @@ public class PushProjectIntoDataSourceScanRule implements IAlgebraicRewriteRule 
     @Override
     public boolean rewritePost(Mutable<ILogicalOperator> opRef, IOptimizationContext context)
             throws AlgebricksException {
-        AbstractLogicalOperator op = (AbstractLogicalOperator) opRef.getValue();
-        if (op.getInputs().size() <= 0)
+        final AbstractLogicalOperator op = (AbstractLogicalOperator) opRef.getValue();
+        if (op.getInputs().isEmpty()) {
             return false;
-        AbstractLogicalOperator project = (AbstractLogicalOperator) op.getInputs().get(0).getValue();
+        }
+        final AbstractLogicalOperator project = (AbstractLogicalOperator) op.getInputs().get(0).getValue();
         if (project.getOperatorTag() != LogicalOperatorTag.PROJECT) {
             return false;
         }
-        AbstractLogicalOperator exchange = (AbstractLogicalOperator) project.getInputs().get(0).getValue();
-        AbstractLogicalOperator inputOp = (AbstractLogicalOperator) exchange.getInputs().get(0).getValue();
-        if (inputOp.getOperatorTag() != LogicalOperatorTag.DATASOURCESCAN) {
+        final AbstractLogicalOperator inputOp = (AbstractLogicalOperator) project.getInputs().get(0).getValue();
+        if (inputOp.getOperatorTag() != LogicalOperatorTag.DATASOURCESCAN
+                && inputOp.getOperatorTag() != LogicalOperatorTag.UNNEST_MAP) {
             return false;
         }
-        DataSourceScanOperator scanOp = (DataSourceScanOperator) inputOp;
-        ProjectOperator projectOp = (ProjectOperator) project;
-        scanOp.addProjectVariables(projectOp.getVariables());
-        if (op.getOperatorTag() != LogicalOperatorTag.EXCHANGE) {
-            op.getInputs().set(0, project.getInputs().get(0));
-        } else {
-            op.getInputs().set(0, exchange.getInputs().get(0));
+        final AbstractScanOperator scan = (AbstractScanOperator) inputOp;
+        if (scan.getProjectExpressions() == null) {
+            return false;
         }
+
+        final ProjectOperator projectOp = (ProjectOperator) project;
+        if (scan.addProjectVariables(projectOp.getVariables())) {
+            //Only remove project when it's not needed
+            op.getInputs().set(0, project.getInputs().get(0));
+        }
+        context.computeAndSetTypeEnvironmentForOperator(scan);
         return true;
     }
 }

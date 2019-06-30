@@ -86,6 +86,8 @@ import org.apache.asterix.om.typecomputer.impl.DoubleIfTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.FieldAccessByIndexResultType;
 import org.apache.asterix.om.typecomputer.impl.FieldAccessByNameResultType;
 import org.apache.asterix.om.typecomputer.impl.FieldAccessNestedResultType;
+import org.apache.asterix.om.typecomputer.impl.ForEachItemTypeComputer;
+import org.apache.asterix.om.typecomputer.impl.ForEachTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.FullTextContainsResultTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.GetOverlappingInvervalTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.IfMissingOrNullTypeComputer;
@@ -260,6 +262,9 @@ public class BuiltinFunctions {
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-slice", 2);
     public static final FunctionIdentifier ARRAY_SLICE_WITH_END_POSITION =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-slice", 3);
+    public static final FunctionIdentifier FOREACH_ITEM_ACCESSOR =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "item-accessor", 0);
+    public static final FunctionIdentifier FOREACH = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "foreach", 2);
 
     // objects
     public static final FunctionIdentifier RECORD_MERGE =
@@ -2200,6 +2205,9 @@ public class BuiltinFunctions {
         addFunction(ARRAY_STAR, OpenARecordTypeComputer.INSTANCE, true);
         addFunction(ARRAY_SLICE_WITH_END_POSITION, AListTypeComputer.INSTANCE_SLICE, true);
         addFunction(ARRAY_SLICE_WITHOUT_END_POSITION, AListTypeComputer.INSTANCE_SLICE, true);
+        //Type computer for this function is dummy
+        addPrivateFunction(FOREACH_ITEM_ACCESSOR, ForEachItemTypeComputer.INSTANCE, true);
+        addPrivateFunction(FOREACH, ForEachTypeComputer.INSTACNE, true);
 
         // objects
         addFunction(RECORD_MERGE, RecordMergeTypeComputer.INSTANCE, true);

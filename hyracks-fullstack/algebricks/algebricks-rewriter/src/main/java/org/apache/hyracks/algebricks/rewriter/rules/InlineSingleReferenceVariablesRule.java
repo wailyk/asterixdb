@@ -26,6 +26,7 @@ import java.util.Map;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.base.IOptimizationContext;
+import org.apache.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
@@ -40,13 +41,13 @@ import org.apache.hyracks.algebricks.core.algebra.operators.logical.visitors.Var
  *
  * Before plan:
  * select (funcA($$3))
- *   ...
- *     assign [$$3] <- [field-access($$0, 1)]
+ * ...
+ * assign [$$3] <- [field-access($$0, 1)]
  *
  * After plan:
  * select (funcA(field-access($$0, 1))
- *   ...
- *     assign [] <- []
+ * ...
+ * assign [] <- []
  */
 public class InlineSingleReferenceVariablesRule extends InlineVariablesRule {
 
@@ -84,6 +85,11 @@ public class InlineSingleReferenceVariablesRule extends InlineVariablesRule {
 
     @Override
     protected boolean performBottomUpAction(AbstractLogicalOperator op) throws AlgebricksException {
+        if (op.getOperatorTag() == LogicalOperatorTag.SUBPLAN) {
+            //subplan Operator should not be considered
+            //TODO what does it mean for a sublplan using a variable?
+            return false;
+        }
         usedVars.clear();
         VariableUtilities.getUsedVariables(op, usedVars);
         for (LogicalVariable var : usedVars) {

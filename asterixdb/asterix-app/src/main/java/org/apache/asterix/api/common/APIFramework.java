@@ -139,8 +139,8 @@ public class APIFramework {
                     FeedActivityDetails.FEED_POLICY_NAME, FeedActivityDetails.COLLECT_LOCATIONS,
                     SqlppQueryRewriter.INLINE_WITH_OPTION, SqlppExpressionToPlanTranslator.REWRITE_IN_AS_OR_OPTION,
                     "hash_merge", "output-record-type", AbstractIntroduceAccessMethodRule.NO_INDEX_ONLY_PLAN_OPTION,
-                    DisjunctivePredicateToJoinRule.REWRITE_OR_AS_JOIN_OPTION);
-
+                    DisjunctivePredicateToJoinRule.REWRITE_OR_AS_JOIN_OPTION,
+                    CompilerProperties.COMPILER_EXPRESSION_PUSHDOWNS_KEY);
     private final IRewriterFactory rewriterFactory;
     private final IAstPrintVisitorFactory astPrintVisitorFactory;
     private final ILangExpressionToPlanTranslatorFactory translatorFactory;

@@ -318,6 +318,7 @@ import org.apache.asterix.runtime.evaluators.functions.ArrayStarDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.ArraySymDiffDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.ArraySymDiffnDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.ArrayUnionDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayWithNestedValuesAccessorDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CastTypeDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CastTypeLaxDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CheckUnknownDescriptor;
@@ -331,6 +332,7 @@ import org.apache.asterix.runtime.evaluators.functions.CreateQueryUIDDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CreateRectangleDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CreateUUIDDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.DeepEqualityDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ForEachItemAccessorDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.FullTextContainsDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.FullTextContainsWithoutOptionDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.GetItemDescriptor;
@@ -597,6 +599,8 @@ public final class FunctionCollection implements IFunctionCollection {
         fc.add(ArraySymDiffDescriptor.FACTORY);
         fc.add(ArraySymDiffnDescriptor.FACTORY);
         fc.add(ArrayStarDescriptor.FACTORY);
+        fc.add(ForEachItemAccessorDescriptor.FACTORY);
+        fc.add(ArrayWithNestedValuesAccessorDescriptor.FACTORY);
 
         // unnesting functions
         fc.add(TidRunningAggregateDescriptor.FACTORY);

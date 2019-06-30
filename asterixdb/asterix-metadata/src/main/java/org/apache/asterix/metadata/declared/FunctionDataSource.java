@@ -48,6 +48,7 @@ import org.apache.hyracks.algebricks.core.jobgen.impl.JobGenContext;
 import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 import org.apache.hyracks.api.job.JobSpecification;
 import org.apache.hyracks.storage.am.common.api.ITupleFilterFactory;
+import org.apache.hyracks.storage.am.common.api.ITupleProjectorFactory;
 
 public abstract class FunctionDataSource extends DataSource {
 
@@ -74,8 +75,8 @@ public abstract class FunctionDataSource extends DataSource {
             List<LogicalVariable> scanVariables, List<LogicalVariable> projectVariables, boolean projectPushed,
             List<LogicalVariable> minFilterVars, List<LogicalVariable> maxFilterVars,
             ITupleFilterFactory tupleFilterFactory, long outputLimit, IOperatorSchema opSchema,
-            IVariableTypeEnvironment typeEnv, JobGenContext context, JobSpecification jobSpec, Object implConfig)
-            throws AlgebricksException {
+            IVariableTypeEnvironment typeEnv, JobGenContext context, JobSpecification jobSpec, Object implConfig,
+            ITupleProjectorFactory tupleProjectorFactory) throws AlgebricksException {
         if (tupleFilterFactory != null || outputLimit >= 0) {
             throw CompilationException.create(ErrorCode.COMPILATION_ILLEGAL_STATE,
                     "tuple filter and limit are not supported by FunctionDataSource");
