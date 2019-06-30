@@ -41,5 +41,8 @@
     <Logger name="org.apache.asterix.test" level="INFO">
       <AppenderRef ref="ConsoleTest"/>
     </Logger>
+    <Logger name="org.apache.hyracks.algebricks" level="ALL">
+      <AppenderRef ref="Console"/>
+    </Logger>
   </Loggers>
 </Configuration>

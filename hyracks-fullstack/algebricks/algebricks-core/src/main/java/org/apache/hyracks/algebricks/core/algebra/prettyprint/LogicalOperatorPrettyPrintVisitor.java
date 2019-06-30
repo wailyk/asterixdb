@@ -311,6 +311,7 @@ public class LogicalOperatorPrettyPrintVisitor extends AbstractLogicalOperatorPr
         AlgebricksAppendable plan = addIndent(indent).append(opSignature + " " + op.getVariables() + " <- "
                 + op.getExpressionRef().getValue().accept(exprVisitor, indent));
         appendFilterInformation(plan, op.getMinFilterVars(), op.getMaxFilterVars());
+        appendProjectInformation(plan, op.getProjectExpressions(), indent);
         return plan;
     }
 
@@ -321,6 +322,7 @@ public class LogicalOperatorPrettyPrintVisitor extends AbstractLogicalOperatorPr
         appendFilterInformation(plan, op.getMinFilterVars(), op.getMaxFilterVars());
         appendSelectConditionInformation(plan, op.getSelectCondition(), indent);
         appendLimitInformation(plan, op.getOutputLimit());
+        appendProjectInformation(plan, op.getProjectExpressions(), indent);
         return null;
     }
 
@@ -351,6 +353,21 @@ public class LogicalOperatorPrettyPrintVisitor extends AbstractLogicalOperatorPr
         if (maxFilterVars != null) {
             plan.append(" max:" + maxFilterVars);
         }
+        return null;
+    }
+
+    private Void appendProjectInformation(AlgebricksAppendable plan,
+            List<Mutable<ILogicalExpression>> projectExpressions, Integer indent) throws AlgebricksException {
+
+        if (projectExpressions != null) {
+            plan.append(" project (");
+            plan.append(projectExpressions.get(0).getValue().accept(exprVisitor, indent));
+            for (int i = 1; i < projectExpressions.size(); i++) {
+                plan.append(", ").append(projectExpressions.get(i).getValue().accept(exprVisitor, indent));
+            }
+            plan.append(")");
+        }
+
         return null;
     }
 

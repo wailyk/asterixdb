@@ -72,4 +72,9 @@ public class LeftOuterUnnestMapOperator extends AbstractUnnestMapOperator {
         return env;
     }
 
+    @Override
+    protected Object getVariableType(int i) {
+        return null;
+    }
+
 }

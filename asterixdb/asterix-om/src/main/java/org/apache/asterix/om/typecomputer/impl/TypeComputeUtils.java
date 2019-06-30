@@ -203,6 +203,9 @@ public class TypeComputeUtils {
     }
 
     public static IAType getActualType(IAType inputType) {
+        if (inputType == null) {
+            System.err.println("here");
+        }
         return inputType.getTypeTag() == ATypeTag.UNION ? ((AUnionType) inputType).getActualType() : inputType;
     }
 

@@ -28,6 +28,7 @@ import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.entities.Index;
 import org.apache.asterix.om.functions.BuiltinFunctions;
 import org.apache.asterix.optimizer.rules.am.BTreeJobGenParams;
+import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.ListSet;
@@ -59,8 +60,10 @@ import org.apache.hyracks.algebricks.core.algebra.properties.PhysicalRequirement
 import org.apache.hyracks.algebricks.core.algebra.properties.StructuralPropertiesVector;
 import org.apache.hyracks.algebricks.core.algebra.properties.UnorderedPartitionedProperty;
 import org.apache.hyracks.algebricks.core.jobgen.impl.JobGenContext;
+import org.apache.hyracks.algebricks.core.jobgen.impl.OperatorSchemaImpl;
 import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 import org.apache.hyracks.storage.am.common.api.ITupleFilterFactory;
+import org.apache.hyracks.storage.am.common.api.ITupleProjectorFactory;
 
 /**
  * Contributes the runtime operator for an unnest-map representing a BTree search.
@@ -123,22 +126,40 @@ public class BTreeSearchPOperator extends IndexSearchPOperator {
         Dataset dataset = metadataProvider.findDataset(jobGenParams.getDataverseName(), jobGenParams.getDatasetName());
         IVariableTypeEnvironment typeEnv = context.getTypeEnvironment(op);
         ITupleFilterFactory tupleFilterFactory = null;
+        ITupleProjectorFactory tupleProjectorFactory = null;
         long outputLimit = -1;
         if (unnestMap.getOperatorTag() == LogicalOperatorTag.UNNEST_MAP) {
             UnnestMapOperator unnestMapOp = (UnnestMapOperator) unnestMap;
             outputLimit = unnestMapOp.getOutputLimit();
+
+            IOperatorSchema scanInputSchema = opSchema;
+            if (unnestMap.isProjectPushed()) {
+                scanInputSchema = new OperatorSchemaImpl();
+                for (LogicalVariable var : unnestMapOp.getVariables()) {
+                    scanInputSchema.addVariable(var);
+                }
+            }
             if (unnestMapOp.getSelectCondition() != null) {
                 tupleFilterFactory = metadataProvider.createTupleFilterFactory(new IOperatorSchema[] { opSchema },
                         typeEnv, unnestMapOp.getSelectCondition().getValue(), context);
             }
+            if (unnestMapOp.getProjectExpressions() != null) {
+                final ILogicalExpression[] projectExprs = unnestMapOp.getProjectExpressions().stream()
+                        .map(Mutable<ILogicalExpression>::getValue).toArray(size -> new ILogicalExpression[size]);
+                tupleProjectorFactory = context.getMetadataProvider().createTupleProjectorFactory(
+                        new IOperatorSchema[] { scanInputSchema }, typeEnv, unnestMapOp.getPayloadExpression(),
+                        projectExprs, context);
+            }
         }
+
         // By nature, LEFT_OUTER_UNNEST_MAP should generate null values for non-matching tuples.
         boolean retainMissing = op.getOperatorTag() == LogicalOperatorTag.LEFT_OUTER_UNNEST_MAP;
         Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> btreeSearch = metadataProvider.buildBtreeRuntime(
                 builder.getJobSpec(), opSchema, typeEnv, context, jobGenParams.getRetainInput(), retainMissing, dataset,
                 jobGenParams.getIndexName(), lowKeyIndexes, highKeyIndexes, jobGenParams.isLowKeyInclusive(),
                 jobGenParams.isHighKeyInclusive(), propagateFilter, minFilterFieldIndexes, maxFilterFieldIndexes,
-                tupleFilterFactory, outputLimit, unnestMap.getGenerateCallBackProceedResultVar());
+                tupleFilterFactory, outputLimit, unnestMap.getGenerateCallBackProceedResultVar(),
+                tupleProjectorFactory);
         IOperatorDescriptor opDesc = btreeSearch.first;
         opDesc.setSourceLocation(unnestMap.getSourceLocation());
 
