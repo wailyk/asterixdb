@@ -39,6 +39,7 @@ public class PhysicalOptimizationConfig {
     private static final String DEFAULT_IN_MEM_HASH_JOIN_TABLE_SIZE = "DEFAULT_IN_MEM_HASH_JOIN_TABLE_SIZE";
     private static final String SORT_PARALLEL = "SORT_PARALLEL";
     private static final String SORT_SAMPLES = "SORT_SAMPLES";
+    private static final String EXPRESSION_PUSHDOWNS = "EXPRESSION_PUSHDOWNS";
 
     private Properties properties = new Properties();
 
@@ -166,6 +167,14 @@ public class PhysicalOptimizationConfig {
 
     public int getSortSamples() {
         return getInt(SORT_SAMPLES, AlgebricksConfig.SORT_SAMPLES);
+    }
+
+    public boolean getExpressionPushdowns() {
+        return getBoolean(EXPRESSION_PUSHDOWNS, AlgebricksConfig.EXPRESSION_PUSHDOWNS);
+    }
+
+    public void setExpressionPushdowns(boolean expressionPushdowns) {
+        setBoolean(EXPRESSION_PUSHDOWNS, expressionPushdowns);
     }
 
     public void setSortSamples(int sortSamples) {

@@ -20,10 +20,12 @@ package org.apache.hyracks.algebricks.core.algebra.operators.physical;
 
 import java.util.List;
 
+import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.core.algebra.base.IHyracksJobBuilder;
+import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
@@ -42,8 +44,10 @@ import org.apache.hyracks.algebricks.core.algebra.properties.IPhysicalProperties
 import org.apache.hyracks.algebricks.core.algebra.properties.PhysicalRequirements;
 import org.apache.hyracks.algebricks.core.algebra.properties.StructuralPropertiesVector;
 import org.apache.hyracks.algebricks.core.jobgen.impl.JobGenContext;
+import org.apache.hyracks.algebricks.core.jobgen.impl.OperatorSchemaImpl;
 import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 import org.apache.hyracks.storage.am.common.api.ITupleFilterFactory;
+import org.apache.hyracks.storage.am.common.api.ITupleProjectorFactory;
 
 @SuppressWarnings("rawtypes")
 public class DataSourceScanPOperator extends AbstractScanPOperator {
@@ -110,15 +114,39 @@ public class DataSourceScanPOperator extends AbstractScanPOperator {
         List<LogicalVariable> vars = scan.getVariables();
         List<LogicalVariable> projectVars = scan.getProjectVariables();
 
+        IOperatorSchema scanInputSchema = opSchema;
+        if (scan.isProjectPushed()) {
+            scanInputSchema = new OperatorSchemaImpl();
+            for (LogicalVariable var : vars) {
+                scanInputSchema.addVariable(var);
+            }
+            scan.setPayloadType(typeEnv);
+        }
+        /*
+         * TODO (wyk) fix projector and filter to access the field once and allow filter to be pushed down
+         * without the need to have the limit with it. 
+         */
         ITupleFilterFactory tupleFilterFactory = null;
         if (scan.getSelectCondition() != null) {
-            tupleFilterFactory = context.getMetadataProvider().createTupleFilterFactory(
-                    new IOperatorSchema[] { opSchema }, typeEnv, scan.getSelectCondition().getValue(), context);
+            final IOperatorSchema[] input =
+                    scan.isProjectPushed() ? inputSchemas : new IOperatorSchema[] { scanInputSchema };
+            tupleFilterFactory = context.getMetadataProvider().createTupleFilterFactory(input, typeEnv,
+                    scan.getSelectCondition().getValue(), context);
         }
 
-        Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = mp.getScannerRuntime(dataSource, vars, projectVars,
-                scan.isProjectPushed(), scan.getMinFilterVars(), scan.getMaxFilterVars(), tupleFilterFactory,
-                scan.getOutputLimit(), opSchema, typeEnv, context, builder.getJobSpec(), implConfig);
+        ITupleProjectorFactory tupleProjectorFactory = null;
+        if (scan.getProjectExpressions() != null) {
+            final ILogicalExpression[] projectExprs = scan.getProjectExpressions().stream()
+                    .map(Mutable<ILogicalExpression>::getValue).toArray(size -> new ILogicalExpression[size]);
+            tupleProjectorFactory =
+                    context.getMetadataProvider().createTupleProjectorFactory(new IOperatorSchema[] { scanInputSchema },
+                            typeEnv, scan.getPayloadExpression(), projectExprs, context);
+        }
+
+        Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p =
+                mp.getScannerRuntime(dataSource, vars, projectVars, scan.isProjectPushed(), scan.getMinFilterVars(),
+                        scan.getMaxFilterVars(), tupleFilterFactory, scan.getOutputLimit(), opSchema, typeEnv, context,
+                        builder.getJobSpec(), implConfig, tupleProjectorFactory);
         IOperatorDescriptor opDesc = p.first;
         opDesc.setSourceLocation(scan.getSourceLocation());
         builder.contributeHyracksOperator(scan, opDesc);

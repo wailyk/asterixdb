@@ -60,4 +60,9 @@ public class UnnestOperator extends AbstractUnnestNonMapOperator {
     public LogicalOperatorTag getOperatorTag() {
         return LogicalOperatorTag.UNNEST;
     }
+
+    @Override
+    protected Object getVariableType(int i) {
+        return null;
+    }
 }

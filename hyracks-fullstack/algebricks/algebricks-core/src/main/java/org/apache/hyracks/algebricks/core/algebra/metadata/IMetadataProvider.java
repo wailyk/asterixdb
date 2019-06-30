@@ -38,6 +38,7 @@ import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.job.JobSpecification;
 import org.apache.hyracks.api.result.IResultMetadata;
 import org.apache.hyracks.storage.am.common.api.ITupleFilterFactory;
+import org.apache.hyracks.storage.am.common.api.ITupleProjectorFactory;
 
 public interface IMetadataProvider<S, I> {
     public IDataSource<S> findDataSource(S id) throws AlgebricksException;
@@ -51,8 +52,8 @@ public interface IMetadataProvider<S, I> {
             List<LogicalVariable> scanVariables, List<LogicalVariable> projectVariables, boolean projectPushed,
             List<LogicalVariable> minFilterVars, List<LogicalVariable> maxFilterVars,
             ITupleFilterFactory tupleFilterFactory, long outputLimit, IOperatorSchema opSchema,
-            IVariableTypeEnvironment typeEnv, JobGenContext context, JobSpecification jobSpec, Object implConfig)
-            throws AlgebricksException;
+            IVariableTypeEnvironment typeEnv, JobGenContext context, JobSpecification jobSpec, Object implConfig,
+            ITupleProjectorFactory tupleProjectorFactory) throws AlgebricksException;
 
     public Pair<IPushRuntimeFactory, AlgebricksPartitionConstraint> getWriteFileRuntime(IDataSink sink,
             int[] printColumns, IPrinterFactory[] printerFactories, RecordDescriptor inputDesc)
@@ -215,5 +216,9 @@ public interface IMetadataProvider<S, I> {
             throws AlgebricksException;
 
     public Map<String, Object> getConfig();
+
+    public ITupleProjectorFactory createTupleProjectorFactory(IOperatorSchema[] iOperatorSchemas,
+            IVariableTypeEnvironment typeEnv, ILogicalExpression payloadExpression, ILogicalExpression[] projectExprs,
+            JobGenContext context) throws AlgebricksException;
 
 }

@@ -24,7 +24,6 @@ import static org.apache.asterix.om.functions.BuiltinFunctions.WindowFunctionPro
 import static org.apache.asterix.om.functions.BuiltinFunctions.WindowFunctionProperty.INJECT_ORDER_ARGS;
 import static org.apache.asterix.om.functions.BuiltinFunctions.WindowFunctionProperty.MATERIALIZE_PARTITION;
 import static org.apache.asterix.om.functions.BuiltinFunctions.WindowFunctionProperty.NO_FRAME_CLAUSE;
-import static org.apache.asterix.om.functions.BuiltinFunctions.WindowFunctionProperty.NO_ORDER_CLAUSE;
 
 import java.util.Collections;
 import java.util.EnumSet;
@@ -255,6 +254,9 @@ public class BuiltinFunctions {
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-slice", 2);
     public static final FunctionIdentifier ARRAY_SLICE_WITH_END_POSITION =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-slice", 3);
+    public static final FunctionIdentifier FOREACH_ITEM_ACCESSOR =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "item-accessor", 0);
+    public static final FunctionIdentifier FOREACH = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "foreach", 2);
 
     // objects
     public static final FunctionIdentifier RECORD_MERGE =
@@ -2178,6 +2180,9 @@ public class BuiltinFunctions {
         addFunction(ARRAY_STAR, OpenARecordTypeComputer.INSTANCE, true);
         addFunction(ARRAY_SLICE_WITH_END_POSITION, AListTypeComputer.INSTANCE_SLICE, true);
         addFunction(ARRAY_SLICE_WITHOUT_END_POSITION, AListTypeComputer.INSTANCE_SLICE, true);
+        //Type computer for this function is dummy
+        addPrivateFunction(FOREACH_ITEM_ACCESSOR, AnyTypeComputer.INSTANCE, true);
+        addPrivateFunction(FOREACH, AnyTypeComputer.INSTANCE, true);
 
         // objects
         addFunction(RECORD_MERGE, RecordMergeTypeComputer.INSTANCE, true);

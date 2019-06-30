@@ -18,8 +18,6 @@
  */
 package org.apache.hyracks.algebricks.core.algebra.operators.logical;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import org.apache.commons.lang3.mutable.Mutable;
@@ -35,10 +33,6 @@ import org.apache.hyracks.algebricks.core.algebra.visitors.ILogicalExpressionRef
 import org.apache.hyracks.algebricks.core.algebra.visitors.ILogicalOperatorVisitor;
 
 public class DataSourceScanOperator extends AbstractDataSourceOperator {
-    private final List<LogicalVariable> projectVars;
-
-    private boolean projectPushed = false;
-
     private List<Mutable<ILogicalExpression>> additionalFilteringExpressions;
     private List<LogicalVariable> minFilterVars;
     private List<LogicalVariable> maxFilterVars;
@@ -56,9 +50,18 @@ public class DataSourceScanOperator extends AbstractDataSourceOperator {
     public DataSourceScanOperator(List<LogicalVariable> variables, IDataSource<?> dataSource,
             Mutable<ILogicalExpression> selectCondition, long outputLimit) {
         super(variables, dataSource);
-        projectVars = new ArrayList<LogicalVariable>();
         this.selectCondition = selectCondition;
         this.outputLimit = outputLimit;
+    }
+
+    public DataSourceScanOperator(List<LogicalVariable> variables, IDataSource<?> dataSource,
+            Mutable<ILogicalExpression> selectCondition, long outputLimit,
+            List<Mutable<ILogicalExpression>> projectExpressions, List<Object> projectExpressionTypes) {
+        super(variables, dataSource);
+        this.selectCondition = selectCondition;
+        this.outputLimit = outputLimit;
+        this.projectExpressions = projectExpressions;
+        this.projectExpressionTypes = projectExpressionTypes;
     }
 
     @Override
@@ -81,19 +84,6 @@ public class DataSourceScanOperator extends AbstractDataSourceOperator {
         return false;
     }
 
-    public void addProjectVariables(Collection<LogicalVariable> vars) {
-        projectVars.addAll(vars);
-        projectPushed = true;
-    }
-
-    public List<LogicalVariable> getProjectVariables() {
-        return projectVars;
-    }
-
-    public boolean isProjectPushed() {
-        return projectPushed;
-    }
-
     @Override
     public VariablePropagationPolicy getVariablePropagationPolicy() {
         return new VariablePropagationPolicy() {
@@ -103,7 +93,8 @@ public class DataSourceScanOperator extends AbstractDataSourceOperator {
                 if (sources.length > 0) {
                     target.addAllVariables(sources[0]);
                 }
-                List<LogicalVariable> outputVariables = projectPushed ? projectVars : variables;
+
+                final List<LogicalVariable> outputVariables = projectPushed ? projectVars : variables;
                 for (LogicalVariable v : outputVariables) {
                     target.addVariable(v);
                 }
@@ -112,15 +103,30 @@ public class DataSourceScanOperator extends AbstractDataSourceOperator {
     }
 
     @Override
+    protected Object getVariableType(int i) {
+        return dataSource.getSchemaTypes()[i];
+    }
+
+    @Override
     public IVariableTypeEnvironment computeOutputTypeEnvironment(ITypingContext ctx) throws AlgebricksException {
         IVariableTypeEnvironment env = createPropagatingAllInputsTypeEnvironment(ctx);
         Object[] types = dataSource.getSchemaTypes();
+        List<LogicalVariable> outputVariables = variables;
+        if (projectExpressionTypes != null) {
+            types = projectExpressionTypes.toArray();
+            outputVariables = projectVars.isEmpty() ? variables : projectVars;
+        }
+
         int i = 0;
-        for (LogicalVariable v : variables) {
+        for (LogicalVariable v : outputVariables) {
             env.setVarType(v, types[i]);
-            ++i;
+            i++;
         }
         return env;
+    }
+
+    public void setPayloadType(IVariableTypeEnvironment typeEnv) {
+        typeEnv.setVarType(variables.get(orginalNumOfVars - 1), dataSource.getSchemaTypes()[orginalNumOfVars - 1]);
     }
 
     public List<LogicalVariable> getMinFilterVars() {

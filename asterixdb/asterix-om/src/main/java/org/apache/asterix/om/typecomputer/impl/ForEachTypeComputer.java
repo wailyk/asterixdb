@@ -16,16 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.hyracks.algebricks.core.config;
+package org.apache.asterix.om.typecomputer.impl;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.apache.asterix.om.typecomputer.base.AbstractResultTypeComputer;
+import org.apache.asterix.om.types.IAType;
+import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
+import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 
-public class AlgebricksConfig {
+public class ForEachTypeComputer extends AbstractResultTypeComputer {
 
-    public static final String ALGEBRICKS_LOGGER_NAME = "org.apache.hyracks.algebricks";
-    public static final Logger ALGEBRICKS_LOGGER = LogManager.getLogger(ALGEBRICKS_LOGGER_NAME);
-    public static final int SORT_SAMPLES = 100;
-    public static final boolean SORT_PARALLEL = true;
-    public static final boolean EXPRESSION_PUSHDOWNS = false;
+    @Override
+    protected IAType getResultType(ILogicalExpression expr, IAType... strippedInputTypes) throws AlgebricksException {
+        return null;
+    }
+
 }
