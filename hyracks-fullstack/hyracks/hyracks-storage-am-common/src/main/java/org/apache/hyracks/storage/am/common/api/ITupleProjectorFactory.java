@@ -16,16 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.hyracks.algebricks.core.config;
+package org.apache.hyracks.storage.am.common.api;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import java.io.Serializable;
 
-public class AlgebricksConfig {
+import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-    public static final String ALGEBRICKS_LOGGER_NAME = "org.apache.hyracks.algebricks";
-    public static final Logger ALGEBRICKS_LOGGER = LogManager.getLogger(ALGEBRICKS_LOGGER_NAME);
-    public static final int SORT_SAMPLES = 100;
-    public static final boolean SORT_PARALLEL = true;
-    public static final boolean EXPRESSION_PUSHDOWNS = false;
+/**
+ * Tuple projector allows the data source to project the values needed before it pushed up
+ * to the upper operator.
+ *
+ * @author wail
+ *
+ */
+public interface ITupleProjectorFactory extends Serializable {
+
+    public RecordDescriptor getInputRecordDescriptor();
+
+    public ITupleProjector createTupleProjector(IHyracksTaskContext context) throws HyracksDataException;
+
+    public Object getProjectionProperties();
 }

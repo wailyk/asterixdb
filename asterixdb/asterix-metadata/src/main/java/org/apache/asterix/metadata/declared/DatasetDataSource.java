@@ -45,6 +45,7 @@ import org.apache.hyracks.algebricks.core.jobgen.impl.JobGenContext;
 import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 import org.apache.hyracks.api.job.JobSpecification;
 import org.apache.hyracks.storage.am.common.api.ITupleFilterFactory;
+import org.apache.hyracks.storage.am.common.api.ITupleProjectorFactory;
 
 public class DatasetDataSource extends DataSource {
 
@@ -97,8 +98,8 @@ public class DatasetDataSource extends DataSource {
             List<LogicalVariable> scanVariables, List<LogicalVariable> projectVariables, boolean projectPushed,
             List<LogicalVariable> minFilterVars, List<LogicalVariable> maxFilterVars,
             ITupleFilterFactory tupleFilterFactory, long outputLimit, IOperatorSchema opSchema,
-            IVariableTypeEnvironment typeEnv, JobGenContext context, JobSpecification jobSpec, Object implConfig)
-            throws AlgebricksException {
+            IVariableTypeEnvironment typeEnv, JobGenContext context, JobSpecification jobSpec, Object implConfig,
+            ITupleProjectorFactory tupleProjectorFactory) throws AlgebricksException {
         switch (dataset.getDatasetType()) {
             case EXTERNAL:
                 if (tupleFilterFactory != null || outputLimit >= 0) {
@@ -112,7 +113,8 @@ public class DatasetDataSource extends DataSource {
 
                 ExternalDatasetDetails edd = (ExternalDatasetDetails) externalDataset.getDatasetDetails();
                 IAdapterFactory adapterFactory = metadataProvider.getConfiguredAdapterFactory(externalDataset,
-                        edd.getAdapter(), edd.getProperties(), (ARecordType) itemType, null);
+                        edd.getAdapter(), edd.getProperties(), (ARecordType) itemType, null, tupleProjectorFactory);
+
                 return metadataProvider.buildExternalDatasetDataScannerRuntime(jobSpec, itemType, adapterFactory);
             case INTERNAL:
                 DataSourceId id = getId();
@@ -126,7 +128,7 @@ public class DatasetDataSource extends DataSource {
                 return metadataProvider.buildBtreeRuntime(jobSpec, opSchema, typeEnv, context, true, false,
                         ((DatasetDataSource) dataSource).getDataset(), primaryIndex.getIndexName(), null, null, true,
                         true, false, minFilterFieldIndexes, maxFilterFieldIndexes, tupleFilterFactory, outputLimit,
-                        false);
+                        false, tupleProjectorFactory);
             default:
                 throw new AlgebricksException("Unknown datasource type");
         }

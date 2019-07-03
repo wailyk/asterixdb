@@ -26,6 +26,7 @@ import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import org.apache.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
+import org.apache.hyracks.algebricks.core.algebra.properties.VariablePropagationPolicy;
 import org.apache.hyracks.algebricks.core.algebra.typing.ITypingContext;
 import org.apache.hyracks.algebricks.core.algebra.typing.NonPropagatingTypeEnvironment;
 import org.apache.hyracks.algebricks.core.algebra.visitors.ILogicalOperatorVisitor;
@@ -61,6 +62,26 @@ public class UnnestMapOperator extends AbstractUnnestMapOperator {
         return visitor.visitUnnestMapOperator(this, arg);
     }
 
+    @Override
+    public VariablePropagationPolicy getVariablePropagationPolicy() {
+        if (projectPushed) {
+            return new VariablePropagationPolicy() {
+                @Override
+                public void propagateVariables(IOperatorSchema target, IOperatorSchema... sources)
+                        throws AlgebricksException {
+                    if (sources.length > 0 && propagateInput) {
+                        target.addAllVariables(sources[0]);
+                    }
+
+                    for (LogicalVariable v : projectVars) {
+                        target.addVariable(v);
+                    }
+                }
+            };
+        }
+        return super.getVariablePropagationPolicy();
+    }
+
     // When propagateInput is true,
     // this operator propagates all input variables.
     @Override
@@ -71,9 +92,17 @@ public class UnnestMapOperator extends AbstractUnnestMapOperator {
         } else {
             env = new NonPropagatingTypeEnvironment(ctx.getExpressionTypeComputer(), ctx.getMetadataProvider());
         }
-        int n = variables.size();
-        for (int i = 0; i < n; i++) {
-            env.setVarType(variables.get(i), variableTypes.get(i));
+        List<Object> types = variableTypes;
+        List<LogicalVariable> outputVariables = variables;
+        if (projectExpressionTypes != null) {
+            types = projectExpressionTypes;
+            outputVariables = projectVars.isEmpty() ? variables : projectVars;
+        }
+
+        int i = 0;
+        for (LogicalVariable v : outputVariables) {
+            env.setVarType(v, types.get(i));
+            i++;
         }
         return env;
     }
@@ -92,6 +121,11 @@ public class UnnestMapOperator extends AbstractUnnestMapOperator {
 
     public void setOutputLimit(long outputLimit) {
         this.outputLimit = outputLimit;
+    }
+
+    @Override
+    protected Object getVariableType(int i) {
+        return variableTypes.get(i);
     }
 
 }

@@ -232,6 +232,11 @@ public class HDFSDataSourceFactory implements IRecordReaderFactory<Object>, IInd
     }
 
     @Override
+    public boolean allowsProjectPushdown() {
+        return Boolean.parseBoolean(configuration.get(ExternalDataConstants.KEY_FIELD_ACCESS_PUSHDOWN));
+    }
+
+    @Override
     public boolean isIndexingOp() {
         return ((files != null) && indexingOp);
     }

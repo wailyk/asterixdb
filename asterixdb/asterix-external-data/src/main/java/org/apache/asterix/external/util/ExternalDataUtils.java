@@ -339,4 +339,13 @@ public class ExternalDataUtils {
         }
         return intIndicators;
     }
+
+    public static void setAllowsProjectPushdown(Map<String, String> configuration) {
+        //Only Apache Parquet supports project pushdowns
+        final String inputFormat = configuration.get(ExternalDataConstants.KEY_INPUT_FORMAT);
+        if (ExternalDataConstants.INPUT_FORMAT_PARQUET.contentEquals(inputFormat)) {
+            configuration.put(ExternalDataConstants.KEY_FIELD_ACCESS_PUSHDOWN, "true");
+            configuration.put(ExternalDataConstants.KEY_FILTER_PUSHDOWN, "true");
+        }
+    }
 }

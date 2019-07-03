@@ -18,9 +18,12 @@
  */
 package org.apache.asterix.external.input.record.reader.hdfs.parquet;
 
+import java.io.IOException;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.Map;
 
+import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IValueReference;
@@ -29,13 +32,21 @@ import org.apache.parquet.hadoop.api.ReadSupport;
 import org.apache.parquet.io.api.GroupConverter;
 import org.apache.parquet.io.api.RecordMaterializer;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.Types;
+import org.apache.parquet.schema.Types.MessageTypeBuilder;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class ParquetReadSupport extends ReadSupport<IValueReference> {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Override
     public ReadContext init(InitContext context) {
         //TODO get the required fields
-        return new ReadContext(context.getFileSchema(), Collections.emptyMap());
+        final String requestedSchemaString = context.getConfiguration().get(ExternalDataConstants.KEY_REQUESTED_FIELDS);
+        MessageType requestedSchema = getRequestedSchema(requestedSchemaString, context.getFileSchema());
+        return new ReadContext(requestedSchema, Collections.emptyMap());
     }
 
     @Override
@@ -69,4 +80,25 @@ public class ParquetReadSupport extends ReadSupport<IValueReference> {
         }
 
     }
+
+    private static MessageType getRequestedSchema(String requestedSchemaString, MessageType fileSchema) {
+        if ("*".equals(requestedSchemaString)) {
+            return fileSchema;
+        }
+
+        try {
+            ObjectNode root = (ObjectNode) OBJECT_MAPPER.readTree(requestedSchemaString);
+            MessageTypeBuilder mBuilder = Types.buildMessage();
+            Iterator<String> iter = root.fieldNames();
+            while (iter.hasNext()) {
+                mBuilder.addField(fileSchema.getType(iter.next()));
+            }
+            return mBuilder.named("asterix");
+        } catch (
+
+        IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }

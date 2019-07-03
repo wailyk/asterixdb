@@ -91,6 +91,7 @@ import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.utils.NonTaggedFormatUtil;
 import org.apache.asterix.runtime.base.AsterixTupleFilterFactory;
+import org.apache.asterix.runtime.base.TupleProjectorFactory;
 import org.apache.asterix.runtime.formats.FormatUtils;
 import org.apache.asterix.runtime.operators.LSMIndexBulkLoadOperatorDescriptor;
 import org.apache.asterix.runtime.operators.LSMIndexBulkLoadOperatorDescriptor.BulkLoadUsage;
@@ -141,6 +142,7 @@ import org.apache.hyracks.storage.am.btree.dataflow.BTreeSearchOperatorDescripto
 import org.apache.hyracks.storage.am.common.api.IModificationOperationCallbackFactory;
 import org.apache.hyracks.storage.am.common.api.ISearchOperationCallbackFactory;
 import org.apache.hyracks.storage.am.common.api.ITupleFilterFactory;
+import org.apache.hyracks.storage.am.common.api.ITupleProjectorFactory;
 import org.apache.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
 import org.apache.hyracks.storage.am.common.dataflow.IndexDataflowHelperFactory;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
@@ -409,10 +411,10 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
             List<LogicalVariable> projectVariables, boolean projectPushed, List<LogicalVariable> minFilterVars,
             List<LogicalVariable> maxFilterVars, ITupleFilterFactory tupleFilterFactory, long outputLimit,
             IOperatorSchema opSchema, IVariableTypeEnvironment typeEnv, JobGenContext context, JobSpecification jobSpec,
-            Object implConfig) throws AlgebricksException {
+            Object implConfig, ITupleProjectorFactory tupleProjectorFactory) throws AlgebricksException {
         return ((DataSource) dataSource).buildDatasourceScanRuntime(this, dataSource, scanVariables, projectVariables,
                 projectPushed, minFilterVars, maxFilterVars, tupleFilterFactory, outputLimit, opSchema, typeEnv,
-                context, jobSpec, implConfig);
+                context, jobSpec, implConfig, tupleProjectorFactory);
     }
 
     protected Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildLoadableDatasetScan(
@@ -463,7 +465,7 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
             boolean retainMissing, Dataset dataset, String indexName, int[] lowKeyFields, int[] highKeyFields,
             boolean lowKeyInclusive, boolean highKeyInclusive, boolean propagateFilter, int[] minFilterFieldIndexes,
             int[] maxFilterFieldIndexes, ITupleFilterFactory tupleFilterFactory, long outputLimit,
-            boolean isIndexOnlyPlan) throws AlgebricksException {
+            boolean isIndexOnlyPlan, ITupleProjectorFactory tupleProjectorFactory) throws AlgebricksException {
         boolean isSecondary = true;
         Index primaryIndex = MetadataManager.INSTANCE.getIndex(mdTxnCtx, dataset.getDataverseName(),
                 dataset.getDatasetName(), dataset.getDatasetName());
@@ -508,7 +510,7 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
                     lowKeyInclusive, highKeyInclusive, indexHelperFactory, retainInput, retainMissing,
                     context.getMissingWriterFactory(), searchCallbackFactory, minFilterFieldIndexes,
                     maxFilterFieldIndexes, propagateFilter, tupleFilterFactory, outputLimit, proceedIndexOnlyPlan,
-                    failValueForIndexOnlyPlan, successValueForIndexOnlyPlan);
+                    failValueForIndexOnlyPlan, successValueForIndexOnlyPlan, tupleProjectorFactory);
         } else {
             btreeSearchOp = new ExternalBTreeSearchOperatorDescriptor(jobSpec, outputRecDesc, lowKeyFields,
                     highKeyFields, lowKeyInclusive, highKeyInclusive, indexHelperFactory, retainInput, retainMissing,
@@ -776,9 +778,14 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
     }
 
     protected IAdapterFactory getConfiguredAdapterFactory(Dataset dataset, String adapterName,
-            Map<String, String> configuration, ARecordType itemType, ARecordType metaType) throws AlgebricksException {
+            Map<String, String> configuration, ARecordType itemType, ARecordType metaType,
+            ITupleProjectorFactory tupleProjectorFactory) throws AlgebricksException {
         try {
             configuration.put(ExternalDataConstants.KEY_DATAVERSE, dataset.getDataverseName());
+            if (tupleProjectorFactory != null) {
+                configuration.put(ExternalDataConstants.KEY_REQUESTED_FIELDS,
+                        (String) tupleProjectorFactory.getProjectionProperties());
+            }
             IAdapterFactory adapterFactory = AdapterFactoryProvider.getAdapterFactory(
                     getApplicationContext().getServiceContext(), adapterName, configuration, itemType, metaType);
 
@@ -1613,6 +1620,27 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
         IScalarEvaluatorFactory filterEvalFactory =
                 expressionRuntimeProvider.createEvaluatorFactory(filterExpr, typeEnv, inputSchemas, context);
         return new AsterixTupleFilterFactory(filterEvalFactory, context.getBinaryBooleanInspectorFactory());
+    }
+
+    @Override
+    public ITupleProjectorFactory createTupleProjectorFactory(IOperatorSchema[] inputSchemas,
+            IVariableTypeEnvironment typeEnv, ILogicalExpression payloadExpression,
+            ILogicalExpression[] projectExpressions, JobGenContext context) throws AlgebricksException {
+        // No projection.
+        if (projectExpressions == null) {
+            return null;
+        }
+
+        final IExpressionRuntimeProvider expressionRuntimeProvider = context.getExpressionRuntimeProvider();
+        final IScalarEvaluatorFactory[] evalFactories = new IScalarEvaluatorFactory[projectExpressions.length];
+        for (int i = 0; i < evalFactories.length; i++) {
+            evalFactories[i] = expressionRuntimeProvider.createEvaluatorFactory(projectExpressions[i], typeEnv,
+                    inputSchemas, context);
+        }
+        final RecordDescriptor inputRecordDescriptor =
+                JobGenHelper.mkRecordDescriptor(typeEnv, inputSchemas[0], context);
+
+        return new TupleProjectorFactory(evalFactories, inputRecordDescriptor, projectExpressions, payloadExpression);
     }
 
     private void validateRecordType(IAType itemType) throws AlgebricksException {

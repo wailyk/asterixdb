@@ -29,6 +29,7 @@ import org.apache.asterix.builders.OrderedListBuilder;
 import org.apache.asterix.builders.RecordBuilder;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.DatasetConfig.TransactionState;
+import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
 import org.apache.asterix.metadata.IDatasetDetails;
 import org.apache.asterix.metadata.bootstrap.MetadataRecordTypes;
@@ -145,6 +146,10 @@ public class ExternalDatasetDetails implements IDatasetDetails {
 
     public void setState(TransactionState state) {
         this.state = state;
+    }
+
+    public boolean allowsProjectPushdown() {
+        return Boolean.parseBoolean(properties.get(ExternalDataConstants.KEY_FIELD_ACCESS_PUSHDOWN));
     }
 
     @Override

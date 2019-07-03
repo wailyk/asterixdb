@@ -215,15 +215,14 @@ public class HDFSUtils {
         }
 
         if (formatClassName == ExternalDataConstants.CLASS_NAME_PARQUET_INPUT_FORMAT) {
-            //AsterixDB configurations
+            //Parquet supports binary-to-binary conversion. No parsing is required
             configuration.put(ExternalDataConstants.KEY_FORMAT, ExternalDataConstants.FORMAT_NOOP);
-            configuration.put(ExternalDataConstants.KEY_FIELD_ACCESS_PUSHDOWN, "true");
-            configuration.put(ExternalDataConstants.KEY_FILTER_PUSHDOWN, "true");
 
             //Parquet configurations
             conf.set(ParquetInputFormat.READ_SUPPORT_CLASS, ParquetReadSupport.class.getName());
             //What are the requested fields? Default (*) which means all fields
-            conf.set(ExternalDataConstants.KEY_REQUESTED_FIELDS, "*");
+            final String requestedSchema = configuration.get(ExternalDataConstants.KEY_REQUESTED_FIELDS);
+            conf.set(ExternalDataConstants.KEY_REQUESTED_FIELDS, requestedSchema != null ? requestedSchema : "*");
         }
         return conf;
     }

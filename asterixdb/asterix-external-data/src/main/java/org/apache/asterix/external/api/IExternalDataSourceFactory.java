@@ -115,4 +115,8 @@ public interface IExternalDataSourceFactory extends Serializable {
         }
         return constraints;
     }
+
+    default boolean allowsProjectPushdown() {
+        return false;
+    }
 }
