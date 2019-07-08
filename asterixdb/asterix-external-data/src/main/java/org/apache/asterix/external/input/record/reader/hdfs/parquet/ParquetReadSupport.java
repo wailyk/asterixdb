@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.hadoop.conf.Configuration;
@@ -31,10 +32,14 @@ import org.apache.parquet.hadoop.api.InitContext;
 import org.apache.parquet.hadoop.api.ReadSupport;
 import org.apache.parquet.io.api.GroupConverter;
 import org.apache.parquet.io.api.RecordMaterializer;
+import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.Type;
 import org.apache.parquet.schema.Types;
+import org.apache.parquet.schema.Types.GroupBuilder;
 import org.apache.parquet.schema.Types.MessageTypeBuilder;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -89,16 +94,46 @@ public class ParquetReadSupport extends ReadSupport<IValueReference> {
         try {
             ObjectNode root = (ObjectNode) OBJECT_MAPPER.readTree(requestedSchemaString);
             MessageTypeBuilder mBuilder = Types.buildMessage();
-            Iterator<String> iter = root.fieldNames();
+            Iterator<Entry<String, JsonNode>> iter = root.fields();
             while (iter.hasNext()) {
-                mBuilder.addField(fileSchema.getType(iter.next()));
+                final Entry<String, JsonNode> pair = iter.next();
+                final String fieldName = pair.getKey();
+                final JsonNode fieldType = pair.getValue();
+                final Type parquetType = fileSchema.getType(fieldName);
+                mBuilder.addField(getRequestedSchema(fieldType, parquetType));
             }
             return mBuilder.named("asterix");
-        } catch (
-
-        IOException e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static Type getRequestedSchema(JsonNode node, Type schema) {
+        if (node.isObject()) {
+            final GroupType groupType = schema.asGroupType();
+            return getRequestedSchema((ObjectNode) node, groupType);
+        } else if (node.isNull()) {
+            return schema;
+        } else {
+            throw new UnsupportedOperationException("type" + schema + "is not supported yet");
+        }
+    }
+
+    private static GroupType getRequestedSchema(ObjectNode node, GroupType schema) {
+        GroupBuilder<GroupType> mBuilder = Types.buildGroup(schema.getRepetition());
+        Iterator<Entry<String, JsonNode>> iter = node.fields();
+        while (iter.hasNext()) {
+            final Entry<String, JsonNode> pair = iter.next();
+            final String fieldName = pair.getKey();
+            final JsonNode fieldType = pair.getValue();
+            final Type parquetType = schema.getType(fieldName);
+            if (fieldType.isObject()) {
+                mBuilder.addField(getRequestedSchema((ObjectNode) fieldType, parquetType).asGroupType());
+            } else if (fieldType.isNull()) {
+                mBuilder.addField(parquetType);
+            }
+        }
+        return mBuilder.named(schema.getName());
     }
 
 }

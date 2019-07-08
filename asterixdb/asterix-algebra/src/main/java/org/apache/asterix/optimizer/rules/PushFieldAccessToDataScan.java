@@ -216,10 +216,6 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
         final LogicalVariable newVar;
         final ILogicalExpression expr = exprRef.getValue();
 
-        //Compute the output type of the expression
-        IVariableTypeEnvironment env = op.computeOutputTypeEnvironment(context);
-        IAType type = (IAType) env.getType(expr);
-
         if (changedScanOp.isAllowsPush()) {
             if (op.getOperatorTag() == LogicalOperatorTag.SELECT) {
                 //Substitute the condition expression with new variable reference expression
@@ -235,7 +231,7 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
                     /* 
                      * Hack alert!!!
                      * Change the produced variable of the AssignOperator to a new variable.
-                     * The optimizer will eliminate the AssignOperator as its produced variable are not used. 
+                     * The optimizer will eliminate the AssignOperator as its produced variable is not used. 
                      */
                     newVar = assignOp.getVariables().get(exprIndex);
                     assignOp.getExpressions().get(exprIndex).setValue(new VariableReferenceExpression(newVar));
@@ -247,12 +243,20 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
                     exprRef.setValue(varExpr);
                 }
             }
-            changedScanOp.getVariables().add(newVar);
             pushedExpers.put(newVar, changedScanOp);
+            //Add fieldAccessExpr to the scan
+            //Compute the output type of the expression
+            IVariableTypeEnvironment env = op.computeOutputTypeEnvironment(context);
+            IAType type = (IAType) env.getType(expr);
+            changedScanOp.addProjectExpression(new MutableObject<>(expr), type);
+            changedScanOp.getVariables().add(newVar);
+        } else {
+            //Compute the output type of the expression
+            ILogicalExpression valueAccessExpr = getFieldAccessExpression(expr);
+            IVariableTypeEnvironment env = op.computeOutputTypeEnvironment(context);
+            IAType type = (IAType) env.getType(valueAccessExpr);
+            changedScanOp.addProjectExpression(new MutableObject<>(valueAccessExpr), type);
         }
-
-        //Add fieldAccessExpr to the scan
-        changedScanOp.addProjectExpression(new MutableObject<>(expr), type);
 
     }
 
@@ -291,6 +295,20 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
         AbstractFunctionCallExpression funcExpr = (AbstractFunctionCallExpression) unnest.getExpressionRef().getValue();
         final LogicalVariable sourceVar = getRootExpressionInputVariable(funcExpr);
         unnestVariables.put(unnestVar, sourceVar);
+    }
+
+    private static ILogicalExpression getFieldAccessExpression(ILogicalExpression expr) {
+        ILogicalExpression currentExpr = expr;
+        while (currentExpr.getExpressionTag() == LogicalExpressionTag.FUNCTION_CALL) {
+            final AbstractFunctionCallExpression currentFuncExpr = (AbstractFunctionCallExpression) currentExpr;
+            if (BuiltinFunctions.FIELD_ACCESS_BY_NAME.equals(currentFuncExpr.getFunctionIdentifier())
+                    || BuiltinFunctions.GET_ITEM.equals(currentFuncExpr.getFunctionIdentifier())) {
+                return currentExpr;
+            }
+            currentExpr = currentFuncExpr.getArguments().get(0).getValue();
+        }
+
+        return null;
     }
 
     private static LogicalVariable getRootExpressionInputVariable(AbstractFunctionCallExpression funcExpr) {

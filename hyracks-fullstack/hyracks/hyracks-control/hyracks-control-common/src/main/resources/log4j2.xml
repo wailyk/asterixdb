@@ -43,5 +43,8 @@
     <Logger name="org.apache.hyracks.util.trace.Tracer.Traces" level="TRACER" additivity="false">
       <AppenderRef ref="TracerLog"/>
     </Logger>
+    <Logger name="org.apache.hyracks.algebricks" level="TRACE">
+      <AppenderRef ref="Console"/>
+    </Logger>
   </Loggers>
 </Configuration>
