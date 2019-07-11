@@ -128,8 +128,13 @@ public class DataSourceScanPOperator extends AbstractScanPOperator {
          */
         ITupleFilterFactory tupleFilterFactory = null;
         if (scan.getSelectCondition() != null) {
-            final IOperatorSchema[] input =
-                    scan.isProjectPushed() ? inputSchemas : new IOperatorSchema[] { scanInputSchema };
+            /*
+                FIXME (yue) the inputSchemas is always empty. I only implement a quick fix here.
+             */
+//            final IOperatorSchema[] input =
+//                    scan.isProjectPushed() ? inputSchemas : new IOperatorSchema[] { scanInputSchema };
+            final IOperatorSchema[] input = new IOperatorSchema[] { scanInputSchema };
+
             tupleFilterFactory = context.getMetadataProvider().createTupleFilterFactory(input, typeEnv,
                     scan.getSelectCondition().getValue(), context);
         }
