@@ -87,6 +87,7 @@ public abstract class AbstractRuleController {
             boolean enterNestedPlans, boolean fullDFS) throws AlgebricksException {
 
         String preBeforePlan = getPlanString(opRef);
+
         if (rule.rewritePre(opRef, context)) {
             String preAfterPlan = getPlanString(opRef);
             printRuleApplication(rule, preBeforePlan, preAfterPlan);

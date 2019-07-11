@@ -64,8 +64,12 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
     public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context)
             throws AlgebricksException {
         ILogicalOperator op = opRef.getValue();
-        if (op.getOperatorTag() != LogicalOperatorTag.LIMIT) {
-            return false;
+        boolean changed = false;
+         if (op.getOperatorTag() != LogicalOperatorTag.LIMIT) {
+             if (op.getOperatorTag() == LogicalOperatorTag.SELECT) {
+                 changed = rewriteSelectWithoutLimit(opRef, context);
+             }
+            return changed;
         }
         if (context.checkIfInDontApplySet(this, op)) {
             return false;
@@ -82,11 +86,17 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
         if (childOp.getValue().getOperatorTag() == LogicalOperatorTag.EXCHANGE) {
             childOp = childOp.getValue().getInputs().get(0);
         }
-        boolean changed;
         if (childOp.getValue().getOperatorTag() == LogicalOperatorTag.SELECT) {
-            changed = rewriteSelect(childOp, outputLimit, context);
-        } else {
+            // if both select and limit
+            changed = rewriteSelectWithLimit(childOp, outputLimit, context);
+            // if changed, delete the limit operator
+            if (changed)
+                opRef.setValue(opRef.getValue().getInputs().get(0).getValue());
+        }
+        else {
             changed = setLimitForScanOrUnnestMap(childOp.getValue(), outputLimit);
+            if (changed)
+                opRef.setValue(opRef.getValue().getInputs().get(0).getValue());
         }
         if (changed) {
             OperatorPropertiesUtil.typeOpRec(opRef, context);
@@ -94,7 +104,64 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
         return changed;
     }
 
-    private boolean rewriteSelect(Mutable<ILogicalOperator> op, int outputLimit, IOptimizationContext context)
+
+    private boolean rewriteSelectWithoutLimit(Mutable<ILogicalOperator> op, IOptimizationContext context)
+        throws AlgebricksException {
+        SelectOperator select = (SelectOperator) op.getValue();
+        ILogicalExpression selectCondition = select.getCondition().getValue(); // contains($$16, "trump")
+        Set<LogicalVariable> selectedVariables = new HashSet<>();   // $$16
+        selectCondition.getUsedVariables(selectedVariables); // why do we need this line?
+
+        MutableObject<ILogicalExpression> selectConditionRef = new MutableObject<>(selectCondition.cloneExpression());
+
+        ILogicalOperator child = select.getInputs().get(0).getValue();
+        InlineVariablesRule.InlineVariablesVisitor inlineVisitor = null;
+        Map<LogicalVariable, ILogicalExpression> varAssignRhs = null;
+        for(; child.getOperatorTag() == LogicalOperatorTag.ASSIGN; child = child.getInputs().get(0).getValue()) {
+            if (varAssignRhs == null) {
+                varAssignRhs = new HashMap<>();
+            } else
+                varAssignRhs.clear();
+
+            AssignOperator assignOp = (AssignOperator) child;
+            extractInlinableVariablesFromAssign(assignOp, selectedVariables, varAssignRhs);
+            if (!varAssignRhs.isEmpty()) {
+                if (inlineVisitor == null) {
+                    inlineVisitor = new InlineVariablesRule.InlineVariablesVisitor(varAssignRhs);
+                    inlineVisitor.setContext(context);
+                    inlineVisitor.setOperator(select);
+                }
+                if (!inlineVisitor.transform(selectConditionRef))
+                    break;
+                selectedVariables.clear();
+                selectConditionRef.getValue().getUsedVariables(selectedVariables);
+            }
+        }
+        boolean  changed = false;
+        switch (child.getOperatorTag()) {
+            case DATASOURCESCAN:
+                DataSourceScanOperator scan = (DataSourceScanOperator) child;
+                if (isScanPushable(scan, selectedVariables)) {
+                    scan.setSelectCondition(selectConditionRef);
+                    changed = true;
+                }
+                break;
+            case UNNEST_MAP:
+                UnnestMapOperator unnestMap = (UnnestMapOperator) child;
+                if (isUnnestMapPushable(unnestMap, selectedVariables)) {
+                    unnestMap.setSelectCondition(selectConditionRef);
+                    changed = true;
+                }
+                break;
+        }
+        if (changed) {
+            op.setValue(op.getValue().getInputs().get(0).getValue());
+        }
+
+        return changed;
+    }
+
+    private boolean rewriteSelectWithLimit(Mutable<ILogicalOperator> op, int outputLimit, IOptimizationContext context)
             throws AlgebricksException {
         SelectOperator select = (SelectOperator) op.getValue();
         ILogicalExpression selectCondition = select.getCondition().getValue();
