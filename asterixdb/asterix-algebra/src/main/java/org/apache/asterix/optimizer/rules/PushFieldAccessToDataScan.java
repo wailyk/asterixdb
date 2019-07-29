@@ -162,6 +162,7 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
 
         //Get root expression input variable in case it is nested field access
         final LogicalVariable funcRootInputVar = getRootExpressionInputVariable(funcExpr);
+        final LogicalVariable inputVar = getLogicalVariable(funcExpr, 0);
         //Check if it's a field access
         if (funcRootInputVar != null) {
             final int recordVarIndex = recordVariables.indexOf(funcRootInputVar);
@@ -170,10 +171,18 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
                 changedScanOp = scanOps.get(recordVarIndex);
                 pushExpressionToScan(exprRef, context);
                 changed = true;
-            } else if (unnestVariables.containsKey(funcRootInputVar)) {
+            }
+            else if (unnestVariables.containsKey(funcRootInputVar)) {
                 wrapWithAccessor(funcRootInputVar, unnestVariables.get(funcRootInputVar), funcExpr, exprRef, context);
                 changed = true;
-            } else {
+            }else if(pushedExpers.containsKey(inputVar)) {
+                //Common Expression
+                changedScanOp = pushedExpers.get(inputVar);
+                //Substitute inputVar with the expression
+                pushExpressionToScan(exprRef, context);
+                changed = false;
+            }
+            else {
                 changed = false;
             }
         } else {
@@ -230,10 +239,10 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
             final int exprIndex = assignOp.getExpressions().indexOf(exprRef);
 
             if (exprIndex >= 0) {
-                /* 
+                /*
                  * Hack alert!!!
                  * Change the produced variable of the AssignOperator to a new variable.
-                 * The optimizer will eliminate the AssignOperator as its produced variable are not used. 
+                 * The optimizer will eliminate the AssignOperator as its produced variable are not used.
                  */
                 newVar = assignOp.getVariables().get(exprIndex);
                 assignOp.getExpressions().get(exprIndex).setValue(new VariableReferenceExpression(newVar));
@@ -292,6 +301,14 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
 
         if (currentExpr.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
             return ((VariableReferenceExpression) currentExpr).getVariableReference();
+        }
+        return null;
+    }
+
+    private static LogicalVariable getLogicalVariable(AbstractFunctionCallExpression funcExpression, int arg) {
+        final ILogicalExpression expr = funcExpression.getArguments().get(arg).getValue();
+        if(expr.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
+            return ((VariableReferenceExpression) expr).getVariableReference();
         }
         return null;
     }
