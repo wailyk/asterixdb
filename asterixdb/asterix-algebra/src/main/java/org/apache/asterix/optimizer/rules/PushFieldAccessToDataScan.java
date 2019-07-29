@@ -171,18 +171,16 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
                 changedScanOp = scanOps.get(recordVarIndex);
                 pushExpressionToScan(exprRef, context);
                 changed = true;
-            }
-            else if (unnestVariables.containsKey(funcRootInputVar)) {
+            } else if (unnestVariables.containsKey(funcRootInputVar)) {
                 wrapWithAccessor(funcRootInputVar, unnestVariables.get(funcRootInputVar), funcExpr, exprRef, context);
                 changed = true;
-            }else if(pushedExpers.containsKey(inputVar)) {
+            } else if (pushedExpers.containsKey(inputVar)) {
                 //Common Expression
                 changedScanOp = pushedExpers.get(inputVar);
                 //Substitute inputVar with the expression
                 pushExpressionToScan(exprRef, context);
                 changed = false;
-            }
-            else {
+            } else {
                 changed = false;
             }
         } else {
@@ -307,7 +305,7 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
 
     private static LogicalVariable getLogicalVariable(AbstractFunctionCallExpression funcExpression, int arg) {
         final ILogicalExpression expr = funcExpression.getArguments().get(arg).getValue();
-        if(expr.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
+        if (expr.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
             return ((VariableReferenceExpression) expr).getVariableReference();
         }
         return null;

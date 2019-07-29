@@ -66,10 +66,10 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
         ILogicalOperator op = opRef.getValue();
         boolean changed = false;
         Integer outputLimit = -1;
-         if (op.getOperatorTag() != LogicalOperatorTag.LIMIT) {
-             if (op.getOperatorTag() == LogicalOperatorTag.SELECT) {
-                 changed = rewriteSelect(opRef, outputLimit, context);
-             }
+        if (op.getOperatorTag() != LogicalOperatorTag.LIMIT) {
+            if (op.getOperatorTag() == LogicalOperatorTag.SELECT) {
+                changed = rewriteSelect(opRef, outputLimit, context);
+            }
             return changed;
         }
         if (context.checkIfInDontApplySet(this, op)) {
@@ -93,8 +93,7 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
             // if changed, delete the limit operator
             if (changed)
                 opRef.setValue(opRef.getValue().getInputs().get(0).getValue());
-        }
-        else {
+        } else {
             changed = setLimitForScanOrUnnestMap(childOp.getValue(), outputLimit);
             if (changed)
                 opRef.setValue(opRef.getValue().getInputs().get(0).getValue());
@@ -104,7 +103,7 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
         }
         return changed;
     }
-    
+
     private boolean rewriteSelect(Mutable<ILogicalOperator> op, int outputLimit, IOptimizationContext context)
             throws AlgebricksException {
         SelectOperator select = (SelectOperator) op.getValue();
