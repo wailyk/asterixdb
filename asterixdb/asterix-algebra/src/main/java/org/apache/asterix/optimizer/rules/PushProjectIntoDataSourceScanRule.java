@@ -60,7 +60,7 @@ public class PushProjectIntoDataSourceScanRule implements IAlgebraicRewriteRule 
         final ProjectOperator projectOp = (ProjectOperator) project;
         if (scan.addProjectVariables(projectOp.getVariables())) {
             //Only remove project when it's not needed
-            // op.getInputs().set(0, project.getInputs().get(0));
+             op.getInputs().set(0, project.getInputs().get(0));
         }
         context.computeAndSetTypeEnvironmentForOperator(scan);
         return true;
