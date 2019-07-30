@@ -96,16 +96,16 @@ public abstract class AbstractScanOperator extends AbstractLogicalOperator {
 
         for (int i = indexesToRetain.length - 1; i >= 0; i--) {
             if (!indexesToRetain[i]) {
-                projectExpressions.remove(i);
-                projectExpressionTypes.remove(i);
-                if (i >= orginalNumOfVars) {
+       //        projectExpressions.remove(i);
+               projectExpressionTypes.remove(i);
+      //          if (i >= orginalNumOfVars) {
                     //Remove added variable for projectedExpression
-                    variables.remove(i);
-                }
+//                    variables.remove(i);
+                //}
             }
         }
         projectPushed = true;
-        return false;
+        return removeProject;
     }
 
     public List<LogicalVariable> getProjectVariables() {
