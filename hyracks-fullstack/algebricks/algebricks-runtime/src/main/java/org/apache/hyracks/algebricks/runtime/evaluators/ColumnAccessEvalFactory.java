@@ -46,10 +46,16 @@ public class ColumnAccessEvalFactory implements IScalarEvaluatorFactory {
 
             @Override
             public void evaluate(IFrameTupleReference tuple, IPointable result) throws HyracksDataException {
-                byte[] buffer = tuple.getFieldData(fieldIndex);
-                int start = tuple.getFieldStart(fieldIndex);
-                int length = tuple.getFieldLength(fieldIndex);
-                result.set(buffer, start, length);
+                if (fieldIndex < tuple.getFieldCount()) {
+                    byte[] buffer = tuple.getFieldData(fieldIndex);
+                    int start = tuple.getFieldStart(fieldIndex);
+                    int length = tuple.getFieldLength(fieldIndex);
+                    result.set(buffer, start, length);
+                }
+                else {
+                    IPointable tmp = tuple.getExtraColumn(fieldIndex - tuple.getFieldCount());
+                    result.set(tmp.getByteArray(), tmp.getStartOffset(), tmp.getLength());
+                }
             }
         };
     }

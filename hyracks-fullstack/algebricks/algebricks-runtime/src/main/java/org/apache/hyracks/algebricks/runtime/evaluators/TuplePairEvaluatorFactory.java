@@ -146,5 +146,9 @@ public class TuplePairEvaluatorFactory implements ITuplePairComparatorFactory {
         public int getTupleIndex() {
             throw new NotImplementedException();
         }
+
+        @Override public IPointable getExtraColumn(int idx) {
+            return null;
+        }
     }
 }

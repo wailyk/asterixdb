@@ -19,6 +19,7 @@
 package org.apache.asterix.runtime.aggregates.base;
 
 import org.apache.hyracks.api.comm.IFrameTupleAccessor;
+import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 
 public class SingleFieldFrameTupleReference implements IFrameTupleReference {
@@ -61,5 +62,9 @@ public class SingleFieldFrameTupleReference implements IFrameTupleReference {
     @Override
     public int getTupleIndex() {
         return 0;
+    }
+
+    @Override public IPointable getExtraColumn(int idx) {
+        return null;
     }
 }

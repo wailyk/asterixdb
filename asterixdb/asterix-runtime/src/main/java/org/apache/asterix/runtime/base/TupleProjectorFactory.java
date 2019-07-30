@@ -52,4 +52,8 @@ public class TupleProjectorFactory implements ITupleProjectorFactory {
         return new TupleProjector(evals);
     }
 
+    public int getFieldNum() {
+        return evalFactories.length;
+    }
+
 }

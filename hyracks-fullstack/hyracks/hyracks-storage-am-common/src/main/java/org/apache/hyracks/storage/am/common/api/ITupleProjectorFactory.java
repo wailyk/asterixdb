@@ -36,4 +36,6 @@ public interface ITupleProjectorFactory extends Serializable {
     public RecordDescriptor getInputRecordDescriptor();
 
     public ITupleProjector createTupleProjector(IHyracksTaskContext context) throws HyracksDataException;
+
+    public int getFieldNum();
 }

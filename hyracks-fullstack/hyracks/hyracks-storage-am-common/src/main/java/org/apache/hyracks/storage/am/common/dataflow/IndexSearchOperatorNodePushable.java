@@ -21,6 +21,9 @@ package org.apache.hyracks.storage.am.common.dataflow;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 
 import org.apache.hyracks.api.comm.IFrameTupleAccessor;
 import org.apache.hyracks.api.comm.VSizeFrame;
@@ -33,7 +36,9 @@ import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.util.CleanupUtils;
 import org.apache.hyracks.api.util.ExceptionUtils;
 import org.apache.hyracks.control.common.job.profiling.OperatorStats;
+import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.api.IValueReference;
+import org.apache.hyracks.data.std.primitive.VoidPointable;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
@@ -248,6 +253,7 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
         try {
             searchPred = createSearchPredicate();
             tb = new ArrayTupleBuilder(recordDesc.getFieldCount());
+            // tb = new ArrayTupleBuilder(tupleProjectorFactory.getFieldNum());
             dos = tb.getDataOutput();
             appender = new FrameTupleAppender(new VSizeFrame(ctx), true);
             ISearchOperationCallback searchCallback =
@@ -380,10 +386,21 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
         } else {
             referenceFilterTuple.reset(tuple);
             IValueReference projectedField;
-            for (int i = 0; i < tupleProjector.getNumberOfFields(); i++) {
+            for (int i = 2; i < tupleProjector.getNumberOfFields(); i++) {
                 projectedField = tupleProjector.projectField(referenceFilterTuple, i);
-                dos.write(projectedField.getByteArray(), projectedField.getStartOffset(), projectedField.getLength());
-                tb.addFieldEndOffset();
+                if (i >= tuple.getFieldCount()) {
+                    referenceFilterTuple.addExtraColumn((IPointable) projectedField);
+                }
+//                dos.write(projectedField.getByteArray(), projectedField.getStartOffset(), projectedField.getLength());
+//                tb.addFieldEndOffset();
+            }
+            ArrayList<Integer> visited = referenceFilterTuple.getVisited();
+            ArrayList<IPointable> extraColumns = referenceFilterTuple.getExtraColumns();
+            for(int i = 0; i < extraColumns.size(); ++i) {
+                if (! visited.contains(i)) {
+                    dos.write(extraColumns.get(i).getByteArray(), extraColumns.get(i).getStartOffset(), extraColumns.get(i).getLength());
+                    tb.addFieldEndOffset();
+                }
             }
         }
     }
@@ -429,11 +446,16 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
      * is used by ITupleFilter
      *
      */
+
     private static class ReferenceFrameTupleReference implements IFrameTupleReference {
         private ITupleReference tuple;
+        private ArrayList<IPointable> extraColumns;
+        private ArrayList<Integer> visited;
 
         public IFrameTupleReference reset(ITupleReference tuple) {
             this.tuple = tuple;
+            this.extraColumns = new ArrayList<>();
+            this.visited = new ArrayList<>();
             return this;
         }
 
@@ -468,6 +490,25 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
             throw new UnsupportedOperationException("getTupleIndex is not supported by ReferenceFrameTupleReference");
         }
 
+        @Override public IPointable getExtraColumn(int idx) {
+            // if this extra column is used, it must be a intermediary value
+            visited.add(idx);
+            return extraColumns.get(idx);
+        }
+
+        public void addExtraColumn(IPointable p) {
+            IPointable copy = new VoidPointable();
+            copy.set(p.getByteArray(), p.getStartOffset(), p.getLength());
+            extraColumns.add(copy);
+        }
+
+        public ArrayList<Integer> getVisited() {
+            return visited;
+        }
+
+        public ArrayList<IPointable> getExtraColumns() {
+            return extraColumns;
+        }
     }
 
 }

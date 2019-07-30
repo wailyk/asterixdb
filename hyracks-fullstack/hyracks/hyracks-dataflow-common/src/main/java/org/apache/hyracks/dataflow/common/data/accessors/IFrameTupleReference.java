@@ -19,9 +19,12 @@
 package org.apache.hyracks.dataflow.common.data.accessors;
 
 import org.apache.hyracks.api.comm.IFrameTupleAccessor;
+import org.apache.hyracks.data.std.api.IPointable;
 
 public interface IFrameTupleReference extends ITupleReference {
     public IFrameTupleAccessor getFrameTupleAccessor();
 
     public int getTupleIndex();
+
+    public IPointable getExtraColumn(int idx);
 }

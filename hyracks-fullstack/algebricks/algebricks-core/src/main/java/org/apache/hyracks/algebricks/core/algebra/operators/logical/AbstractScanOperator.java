@@ -85,27 +85,27 @@ public abstract class AbstractScanOperator extends AbstractLogicalOperator {
         projectVars.addAll(variables);
         projectVars.retainAll(vars);
         //Remove project if there are no propagated variables from child operators
-        final boolean removeProject = projectVars.size() == vars.size();
-        final boolean[] indexesToRetain = new boolean[variables.size()];
-        for (int i = 0; i < projectVars.size(); i++) {
-            final int indexToRetain = variables.indexOf(projectVars.get(i));
-            if (indexToRetain >= 0) {
-                indexesToRetain[indexToRetain] = true;
-            }
-        }
-
-        for (int i = indexesToRetain.length - 1; i >= 0; i--) {
-            if (!indexesToRetain[i]) {
-                projectExpressions.remove(i);
-                projectExpressionTypes.remove(i);
-                if (i >= orginalNumOfVars) {
-                    //Remove added variable for projectedExpression
-                    variables.remove(i);
-                }
-            }
-        }
+//        final boolean removeProject = projectVars.size() == vars.size();
+//        final boolean[] indexesToRetain = new boolean[variables.size()];
+//        for (int i = 0; i < projectVars.size(); i++) {
+//            final int indexToRetain = variables.indexOf(projectVars.get(i));
+//            if (indexToRetain >= 0) {
+//                indexesToRetain[indexToRetain] = true;
+//            }
+//        }
+//
+//        for (int i = indexesToRetain.length - 1; i >= 0; i--) {
+//            if (!indexesToRetain[i]) {
+//                projectExpressions.remove(i);
+//                projectExpressionTypes.remove(i);
+//                if (i >= orginalNumOfVars) {
+//                    //Remove added variable for projectedExpression
+//                    variables.remove(i);
+//                }
+//            }
+//        }
         projectPushed = true;
-        return removeProject;
+        return false;
     }
 
     public List<LogicalVariable> getProjectVariables() {

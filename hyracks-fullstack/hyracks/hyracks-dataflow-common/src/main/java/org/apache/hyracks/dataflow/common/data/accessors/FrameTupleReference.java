@@ -20,6 +20,7 @@
 package org.apache.hyracks.dataflow.common.data.accessors;
 
 import org.apache.hyracks.api.comm.IFrameTupleAccessor;
+import org.apache.hyracks.data.std.api.IPointable;
 
 public class FrameTupleReference implements IFrameTupleReference {
     protected IFrameTupleAccessor fta;
@@ -38,6 +39,10 @@ public class FrameTupleReference implements IFrameTupleReference {
     @Override
     public int getTupleIndex() {
         return tIndex;
+    }
+
+    @Override public IPointable getExtraColumn(int idx) {
+        return null;
     }
 
     @Override
