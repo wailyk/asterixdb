@@ -30,6 +30,11 @@ import org.apache.hyracks.algebricks.runtime.base.IUnnestingPositionWriter;
 
 public class UnnestOperator extends AbstractUnnestNonMapOperator {
 
+    // the select condition in the SELECT operator. Only results satisfying this selectCondition
+    // would be returned by this operator
+    private Mutable<ILogicalExpression> selectCondition;
+
+
     public UnnestOperator(LogicalVariable variable, Mutable<ILogicalExpression> expression) {
         super(variable, expression);
     }
@@ -43,6 +48,11 @@ public class UnnestOperator extends AbstractUnnestNonMapOperator {
     @Override
     public <R, T> R accept(ILogicalOperatorVisitor<R, T> visitor, T arg) throws AlgebricksException {
         return visitor.visitUnnestOperator(this, arg);
+    }
+
+    public UnnestOperator(LogicalVariable variable, Mutable<ILogicalExpression> expression, Mutable<ILogicalExpression> selectCondition) {
+        super(variable, expression);
+        this.selectCondition = selectCondition;
     }
 
     @Override
@@ -65,4 +75,13 @@ public class UnnestOperator extends AbstractUnnestNonMapOperator {
     protected Object getVariableType(int i) {
         return null;
     }
+
+    public Mutable<ILogicalExpression> getSelectCondition() {
+        return selectCondition;
+    }
+
+    public void setSelectCondition(Mutable<ILogicalExpression> selectCondition) {
+        this.selectCondition = selectCondition;
+    }
+
 }

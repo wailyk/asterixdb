@@ -38,11 +38,8 @@ import org.apache.hyracks.algebricks.core.algebra.base.LogicalExpressionTag;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.LimitOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.*;
+import org.apache.hyracks.algebricks.core.algebra.operators.physical.SubplanPOperator;
 import org.apache.hyracks.algebricks.core.algebra.util.OperatorPropertiesUtil;
 import org.apache.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 import org.apache.hyracks.algebricks.rewriter.rules.InlineVariablesRule;
@@ -69,9 +66,22 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
          if (op.getOperatorTag() != LogicalOperatorTag.LIMIT) {
              if (op.getOperatorTag() == LogicalOperatorTag.SELECT) {
                  changed = rewriteSelect(opRef, outputLimit, context);
+             } else if (op.getOperatorTag() == LogicalOperatorTag.SUBPLAN) {
+                 final SubplanOperator subplan = (SubplanOperator) op;
+                 Mutable<ILogicalOperator> subOpRef = subplan.getNestedPlans().get(0).getRoots().get(0);
+                 ILogicalOperator subOp = subOpRef.getValue();
+                 rewritePre(subOpRef, context);
+                 while (subOp.getInputs() != null && !subOp.getInputs().isEmpty()) {
+                     subOpRef = subOp.getInputs().get(0);
+                     subOp = subOpRef.getValue();
+                     rewritePre(subOpRef, context);
+                 }
              }
             return changed;
         }
+
+
+
         if (context.checkIfInDontApplySet(this, op)) {
             return false;
         }
@@ -159,6 +169,12 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
                         unnestMap.setOutputLimit(outputLimit);
                     changed = true;
                 }
+                break;
+
+            case UNNEST:
+                Mutable<ILogicalExpression> originalSelectConditionRef = select.getCondition();
+                originalSelectConditionRef.setValue(selectConditionRef.getValue());
+
                 break;
         }
 

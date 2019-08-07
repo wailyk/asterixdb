@@ -129,6 +129,7 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
         } else {
             final AssignOperator assignOp = (AssignOperator) op;
             changed = pushFieldAccessExpression(assignOp.getExpressions(), context);
+
         }
 
         if (changed) {

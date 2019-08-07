@@ -97,6 +97,7 @@ public class ArrayWithNestedValuesAccessorDescriptor extends AbstractScalarFunct
     private class ArrayWithNestedValuesAccessorEval implements IScalarEvaluator {
         private final IScalarEvaluator listEval;
         private final IScalarEvaluator nestedValuesBuilderEval;
+
         private final VoidPointable listValue;
         private final VoidPointable nestedValue;
         private final SingleFieldFrameTupleReference itemValue;
@@ -110,6 +111,7 @@ public class ArrayWithNestedValuesAccessorDescriptor extends AbstractScalarFunct
             outputListBuilder = new OrderedListBuilder();
             listEval = args[0].createScalarEvaluator(ctx);
             nestedValuesBuilderEval = args[1].createScalarEvaluator(ctx);
+
             accessor = new ListAccessor();
             tempStorage = new ArrayBackedValueStorage();
             listValue = new VoidPointable();
