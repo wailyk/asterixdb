@@ -42,17 +42,8 @@ import org.apache.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalExpressionTag;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalVariable;
-import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
-import org.apache.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
-import org.apache.hyracks.algebricks.core.algebra.expressions.ScalarFunctionCallExpression;
-import org.apache.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractScanOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.SubplanOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestOperator;
+import org.apache.hyracks.algebricks.core.algebra.expressions.*;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.*;
 import org.apache.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 
 public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
@@ -62,6 +53,10 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
     private final Map<LogicalVariable, LogicalVariable> unnestVariables = new HashMap<>();
     //Dataset scan operators
     private final List<AbstractScanOperator> scanOps = new ArrayList<>();
+    // project operators
+    private final List<ProjectOperator> projectOps = new ArrayList<>();
+    // assign operaotors
+    private final List<AssignOperator> assignOps = new ArrayList<>();
     //Expressions that have been pushed to dataset scan operator
     private final Map<LogicalVariable, AbstractScanOperator> pushedExpers = new HashMap<>();
     //Current scan operator that the expression will be pushed to
@@ -70,6 +65,8 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
     private ILogicalOperator op;
     // If the current operator is select
     private boolean isSelect;
+    // 0: some/any 1: every
+    private int quantifier = -1;
 
     @Override
     public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context)
@@ -84,6 +81,18 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
             setDataset(currentOp, (MetadataProvider) context.getMetadataProvider());
         } else if (currentOpTag == LogicalOperatorTag.UNNEST) {
             setUnnest(currentOp);
+        } else if (currentOpTag == LogicalOperatorTag.ASSIGN) {
+            assignOps.add((AssignOperator) currentOp);
+        } else if (currentOpTag == LogicalOperatorTag.PROJECT) {
+            projectOps.add((ProjectOperator) currentOp);
+        } else if (currentOpTag == LogicalOperatorTag.AGGREGATE) {
+            AggregateOperator aggregateOperator = (AggregateOperator) currentOp;
+            if (aggregateOperator.getExpressions().get(0).getValue().toString().equals("empty-stream()")) {
+                quantifier = 1; // every
+            } else {
+                quantifier = 0; // some
+            }
+
         } else if (currentOpTag == LogicalOperatorTag.SUBPLAN) {
             final SubplanOperator subplan = (SubplanOperator) currentOp;
             Mutable<ILogicalOperator> subOpRef = subplan.getNestedPlans().get(0).getRoots().get(0);
@@ -125,6 +134,7 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
         }
 
         final boolean changed;
+
         if (op.getOperatorTag() == LogicalOperatorTag.SELECT) {
             final SelectOperator selectOp = (SelectOperator) op;
             isSelect = true;
@@ -225,11 +235,28 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
         foreachFunc.getArguments().add(new MutableObject<>(funcExpr));
         exprRef.setValue(new VariableReferenceExpression(unnestProduced));
         scanExprRef.setValue(foreachFunc);
+        // if it is select, remove the unused unnest source variable
         if (isSelect) {
             DataSourceScanOperator dataSourceScanOperator = (DataSourceScanOperator) changedScanOp;
             dataSourceScanOperator.setSelectCondition(scanExprRef);
+            dataSourceScanOperator.setQuantifier(quantifier);
             changedScanOp.getProjectExpressions().remove(scanExprVarIndex);
             changedScanOp.getVariables().remove(scanExprVarIndex);
+            // remove the unnest source in assign operators
+            for (AssignOperator assignOperator : assignOps) {
+                final int assignExprVarIndex = assignOperator.getExpressions().indexOf(unnestSource);
+                if (assignExprVarIndex >= 0) {
+                    assignOperator.getExpressions().remove(assignExprVarIndex);
+                    assignOperator.getVariables().remove(assignExprVarIndex);
+                }
+            }
+            // remove the unnest source in project operators
+            for (ProjectOperator projectOperator : projectOps) {
+                final int projectExprVarIndex = projectOperator.getVariables().indexOf(unnestSource);
+                if (projectExprVarIndex >= 0) {
+                    projectOperator.getVariables().remove(projectExprVarIndex);
+                }
+            }
 
         }
         changedScanOp.computeInputTypeEnvironment(context);

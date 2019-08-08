@@ -33,16 +33,18 @@ public class AsterixTupleFilterFactory implements ITupleFilterFactory {
 
     private final IBinaryBooleanInspectorFactory boolInspectorFactory;
     private final IScalarEvaluatorFactory evalFactory;
+    private int quantifier;
 
     public AsterixTupleFilterFactory(IScalarEvaluatorFactory evalFactory,
-            IBinaryBooleanInspectorFactory boolInspectorFactory) throws AlgebricksException {
+            IBinaryBooleanInspectorFactory boolInspectorFactory, int quantifier) throws AlgebricksException {
         this.evalFactory = evalFactory;
         this.boolInspectorFactory = boolInspectorFactory;
+        this.quantifier = quantifier;
     }
 
     @Override
     public ITupleFilter createTupleFilter(IHyracksTaskContext ctx) throws HyracksDataException {
-        return new AsterixTupleFilter(ctx, evalFactory, boolInspectorFactory.createBinaryBooleanInspector(ctx));
+        return new AsterixTupleFilter(ctx, evalFactory, boolInspectorFactory.createBinaryBooleanInspector(ctx), quantifier);
     }
 
 }

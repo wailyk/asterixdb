@@ -36,6 +36,7 @@ public class DataSourceScanOperator extends AbstractDataSourceOperator {
     private List<Mutable<ILogicalExpression>> additionalFilteringExpressions;
     private List<LogicalVariable> minFilterVars;
     private List<LogicalVariable> maxFilterVars;
+    private int quantifier = -1; // 0: some/any 1: every
 
     // the select condition in the SELECT operator. Only results satisfying this selectCondition
     // would be returned by this operator
@@ -159,6 +160,14 @@ public class DataSourceScanOperator extends AbstractDataSourceOperator {
 
     public void setSelectCondition(Mutable<ILogicalExpression> selectCondition) {
         this.selectCondition = selectCondition;
+    }
+
+    public void setQuantifier(int quantifier) {
+        this.quantifier = quantifier;
+    }
+
+    public int getQuantifier() {
+        return this.quantifier;
     }
 
     public long getOutputLimit() {

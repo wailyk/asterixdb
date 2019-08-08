@@ -136,7 +136,7 @@ public class DataSourceScanPOperator extends AbstractScanPOperator {
             final IOperatorSchema[] input = new IOperatorSchema[] { scanInputSchema };
 
             tupleFilterFactory = context.getMetadataProvider().createTupleFilterFactory(input, typeEnv,
-                    scan.getSelectCondition().getValue(), context);
+                    scan.getSelectCondition().getValue(), scan.getQuantifier(), context);
         }
 
         ITupleProjectorFactory tupleProjectorFactory = null;

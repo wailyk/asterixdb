@@ -1096,7 +1096,8 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
             prevAdditionalFilteringKeys = new ArrayList<>();
             prevAdditionalFilteringKeys.add(prevAdditionalFilteringKey);
         }
-        AsterixTupleFilterFactory filterFactory = createTupleFilterFactory(inputSchemas, typeEnv, filterExpr, context);
+        // todo: should get quantifier value from the outside
+        AsterixTupleFilterFactory filterFactory = createTupleFilterFactory(inputSchemas, typeEnv, filterExpr, -1, context);
         switch (secondaryIndex.getIndexType()) {
             case BTREE:
                 return getBTreeRuntime(dataverseName, datasetName, indexName, propagatedSchema, primaryKeys,
@@ -1605,7 +1606,7 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
 
     @Override
     public AsterixTupleFilterFactory createTupleFilterFactory(IOperatorSchema[] inputSchemas,
-            IVariableTypeEnvironment typeEnv, ILogicalExpression filterExpr, JobGenContext context)
+            IVariableTypeEnvironment typeEnv, ILogicalExpression filterExpr, int quantifier, JobGenContext context)
             throws AlgebricksException {
         // No filtering condition.
         if (filterExpr == null) {
@@ -1614,7 +1615,7 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
         IExpressionRuntimeProvider expressionRuntimeProvider = context.getExpressionRuntimeProvider();
         IScalarEvaluatorFactory filterEvalFactory =
                 expressionRuntimeProvider.createEvaluatorFactory(filterExpr, typeEnv, inputSchemas, context);
-        return new AsterixTupleFilterFactory(filterEvalFactory, context.getBinaryBooleanInspectorFactory());
+        return new AsterixTupleFilterFactory(filterEvalFactory, context.getBinaryBooleanInspectorFactory(), quantifier);
     }
 
     @Override

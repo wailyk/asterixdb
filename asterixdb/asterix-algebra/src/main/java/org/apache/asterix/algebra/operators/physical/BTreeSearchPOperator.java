@@ -140,8 +140,9 @@ public class BTreeSearchPOperator extends IndexSearchPOperator {
                 }
             }
             if (unnestMapOp.getSelectCondition() != null) {
+                // todo: support unnestMapOp with quantifier
                 tupleFilterFactory = metadataProvider.createTupleFilterFactory(new IOperatorSchema[] { opSchema },
-                        typeEnv, unnestMapOp.getSelectCondition().getValue(), context);
+                        typeEnv, unnestMapOp.getSelectCondition().getValue(), -1, context);
             }
             if (unnestMapOp.getProjectExpressions() != null) {
                 final ILogicalExpression[] projectExprs = unnestMapOp.getProjectExpressions().stream()

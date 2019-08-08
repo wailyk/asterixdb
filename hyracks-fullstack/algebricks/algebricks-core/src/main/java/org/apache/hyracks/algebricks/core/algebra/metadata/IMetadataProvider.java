@@ -212,7 +212,7 @@ public interface IMetadataProvider<S, I> {
             JobSpecification spec) throws AlgebricksException;
 
     public ITupleFilterFactory createTupleFilterFactory(IOperatorSchema[] inputSchemas,
-            IVariableTypeEnvironment typeEnv, ILogicalExpression filterExpr, JobGenContext context)
+            IVariableTypeEnvironment typeEnv, ILogicalExpression filterExpr, int quantifier, JobGenContext context)
             throws AlgebricksException;
 
     public Map<String, Object> getConfig();
