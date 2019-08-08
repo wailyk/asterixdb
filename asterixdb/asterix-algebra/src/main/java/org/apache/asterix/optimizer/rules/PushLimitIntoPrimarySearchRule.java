@@ -18,15 +18,16 @@
  */
 package org.apache.asterix.optimizer.rules;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
+import org.apache.asterix.common.config.DatasetConfig;
 import org.apache.asterix.metadata.declared.DataSource;
+import org.apache.asterix.metadata.declared.DataSourceId;
+import org.apache.asterix.metadata.declared.DatasetDataSource;
+import org.apache.asterix.metadata.declared.MetadataProvider;
+import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.om.functions.BuiltinFunctions;
+import org.apache.asterix.om.utils.ConstantExpressionUtil;
 import org.apache.asterix.optimizer.rules.am.AccessMethodJobGenParams;
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableObject;
@@ -38,6 +39,7 @@ import org.apache.hyracks.algebricks.core.algebra.base.LogicalExpressionTag;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
+import org.apache.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.*;
 import org.apache.hyracks.algebricks.core.algebra.operators.physical.SubplanPOperator;
 import org.apache.hyracks.algebricks.core.algebra.util.OperatorPropertiesUtil;
@@ -52,6 +54,10 @@ import org.apache.hyracks.algebricks.rewriter.rules.InlineVariablesRule;
  */
 public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
 
+    //Dataset scan operators
+    private final List<AbstractScanOperator> scanOps = new ArrayList<>();
+    //Datasets payload variables
+    private final List<LogicalVariable> recordVariables = new ArrayList<>();
     @Override
     public boolean rewritePost(Mutable<ILogicalOperator> opRef, IOptimizationContext context) {
         return false;
@@ -126,6 +132,7 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
 
         // If the select condition uses variables from assigns then inline those variables into it
         ILogicalOperator child = select.getInputs().get(0).getValue();
+        Mutable<ILogicalOperator> childRef = select.getInputs().get(0);
         InlineVariablesRule.InlineVariablesVisitor inlineVisitor = null;
         Map<LogicalVariable, ILogicalExpression> varAssignRhs = null;
         for (; child.getOperatorTag() == LogicalOperatorTag.ASSIGN; child = child.getInputs().get(0).getValue()) {
@@ -147,6 +154,10 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
                 }
                 selectedVariables.clear();
                 selectConditionRef.getValue().getUsedVariables(selectedVariables);
+            }
+            // if the the following operator is unnest, delete the assign
+            if (child.getInputs().get(0).getValue().getOperatorTag() == LogicalOperatorTag.UNNEST) {
+                childRef.setValue(childRef.getValue().getInputs().get(0).getValue());
             }
         }
 
@@ -241,6 +252,51 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
             return false;
         }
         return true;
+    }
+
+    private void setDataset(ILogicalOperator op, MetadataProvider mp) throws AlgebricksException {
+        final AbstractScanOperator scan = (AbstractScanOperator) op;
+        final DataSource dataSource = getDatasourceInfo(mp, scan);
+
+        if (dataSource == null) {
+            return;
+        }
+        final String dataverse = dataSource.getId().getDataverseName();
+        final String datasetName = dataSource.getId().getDatasourceName();
+        final Dataset dataset = mp.findDataset(dataverse, datasetName);
+
+        if (dataset != null && dataset.getDatasetType() == DatasetConfig.DatasetType.INTERNAL) {
+            DatasetDataSource datasetDataSource = (DatasetDataSource) dataSource;
+            final LogicalVariable recordVar = datasetDataSource.getDataRecordVariable(scan.getVariables());
+            scan.addPayloadExpression(new VariableReferenceExpression(recordVar));
+            recordVariables.add(recordVar);
+            scanOps.add(scan);
+        }
+    }
+
+    private static DataSource getDatasourceInfo(MetadataProvider metadataProvider, AbstractScanOperator scanOp)
+            throws AlgebricksException {
+        final String dataverse;
+        final String dataset;
+        final DataSource dataSource;
+
+        if (scanOp.getOperatorTag() == LogicalOperatorTag.DATASOURCESCAN) {
+            final DataSourceScanOperator scan = (DataSourceScanOperator) scanOp;
+            dataSource = (DataSource) scan.getDataSource();
+        } else {
+            final UnnestMapOperator unnest = (UnnestMapOperator) scanOp;
+            final AbstractFunctionCallExpression funcExpr =
+                    (AbstractFunctionCallExpression) unnest.getExpressionRef().getValue();
+            dataverse = ConstantExpressionUtil.getStringArgument(funcExpr, 2);
+            dataset = ConstantExpressionUtil.getStringArgument(funcExpr, 3);
+            if (!ConstantExpressionUtil.getStringArgument(funcExpr, 0).equals(dataset)) {
+                return null;
+            }
+
+            dataSource = metadataProvider.findDataSource(new DataSourceId(dataverse, dataset));
+        }
+
+        return dataSource;
     }
 
     private void extractInlinableVariablesFromAssign(AssignOperator assignOp, Set<LogicalVariable> includeVariables,

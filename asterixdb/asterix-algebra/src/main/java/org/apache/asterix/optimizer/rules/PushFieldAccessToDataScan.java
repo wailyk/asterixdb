@@ -68,6 +68,8 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
     private AbstractScanOperator changedScanOp;
     //Current operator that contains the expression to be pushed
     private ILogicalOperator op;
+    // If the current operator is select
+    private boolean isSelect;
 
     @Override
     public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context)
@@ -125,9 +127,26 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
         final boolean changed;
         if (op.getOperatorTag() == LogicalOperatorTag.SELECT) {
             final SelectOperator selectOp = (SelectOperator) op;
+            isSelect = true;
             changed = pushFieldAccessExpression(selectOp.getCondition(), context);
+            if (changed) {
+                // remove pattern nested-tuple-source ---> unnest ---> select
+                // remove select
+                Mutable<ILogicalOperator> childRef = op.getInputs().get(0);
+                opRef.setValue(childRef.getValue());
+                // remove unnest
+                if (opRef.getValue().getOperatorTag() == LogicalOperatorTag.UNNEST) {
+                    opRef.setValue(opRef.getValue().getInputs().get(0).getValue());
+                }
+                // remove nested tuple source
+//                if (opRef.getValue().getOperatorTag() == LogicalOperatorTag.NESTEDTUPLESOURCE) {
+//                    opRef.setValue(opRef.getValue().getInputs().get(0).getValue());
+//                }
+
+            }
         } else {
             final AssignOperator assignOp = (AssignOperator) op;
+            isSelect = false;
             changed = pushFieldAccessExpression(assignOp.getExpressions(), context);
 
         }
@@ -206,7 +225,13 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
         foreachFunc.getArguments().add(new MutableObject<>(funcExpr));
         exprRef.setValue(new VariableReferenceExpression(unnestProduced));
         scanExprRef.setValue(foreachFunc);
+        if (isSelect) {
+            DataSourceScanOperator dataSourceScanOperator = (DataSourceScanOperator) changedScanOp;
+            dataSourceScanOperator.setSelectCondition(scanExprRef);
+            changedScanOp.getProjectExpressions().remove(scanExprVarIndex);
+            changedScanOp.getVariables().remove(scanExprVarIndex);
 
+        }
         changedScanOp.computeInputTypeEnvironment(context);
     }
 
