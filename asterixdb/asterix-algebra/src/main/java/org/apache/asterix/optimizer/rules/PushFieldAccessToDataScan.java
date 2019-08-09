@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.sun.org.apache.bcel.internal.generic.Select;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.lang.common.util.FunctionUtil;
 import org.apache.asterix.metadata.declared.DataSource;
@@ -36,12 +37,7 @@ import org.apache.asterix.om.utils.ConstantExpressionUtil;
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
-import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
-import org.apache.hyracks.algebricks.core.algebra.base.ILogicalOperator;
-import org.apache.hyracks.algebricks.core.algebra.base.IOptimizationContext;
-import org.apache.hyracks.algebricks.core.algebra.base.LogicalExpressionTag;
-import org.apache.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
-import org.apache.hyracks.algebricks.core.algebra.base.LogicalVariable;
+import org.apache.hyracks.algebricks.core.algebra.base.*;
 import org.apache.hyracks.algebricks.core.algebra.expressions.*;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.*;
 import org.apache.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
@@ -57,6 +53,10 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
     private final List<ProjectOperator> projectOps = new ArrayList<>();
     // assign operaotors
     private final List<AssignOperator> assignOps = new ArrayList<>();
+    // select operator to remove if subplan is removed
+    private Mutable<ILogicalOperator> selectOpToBeRemoved;
+    // aggregate variable
+    private LogicalVariable aggregateVariable;
     //Expressions that have been pushed to dataset scan operator
     private final Map<LogicalVariable, AbstractScanOperator> pushedExpers = new HashMap<>();
     //Current scan operator that the expression will be pushed to
@@ -67,6 +67,11 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
     private boolean isSelect;
     // 0: some/any 1: every
     private int quantifier = -1;
+
+    // subplan pattern to remove
+    private LogicalOperatorTag[] pattern = {LogicalOperatorTag.AGGREGATE, LogicalOperatorTag.SELECT, LogicalOperatorTag.UNNEST, LogicalOperatorTag.NESTEDTUPLESOURCE};
+    private boolean removeSubplan = false;
+
 
     @Override
     public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context)
@@ -85,18 +90,19 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
             assignOps.add((AssignOperator) currentOp);
         } else if (currentOpTag == LogicalOperatorTag.PROJECT) {
             projectOps.add((ProjectOperator) currentOp);
-        } else if (currentOpTag == LogicalOperatorTag.AGGREGATE) {
-            AggregateOperator aggregateOperator = (AggregateOperator) currentOp;
-            if (aggregateOperator.getExpressions().get(0).getValue().toString().equals("empty-stream()")) {
-                quantifier = 1; // every
-            } else {
-                quantifier = 0; // some
-            }
-
         } else if (currentOpTag == LogicalOperatorTag.SUBPLAN) {
             final SubplanOperator subplan = (SubplanOperator) currentOp;
             Mutable<ILogicalOperator> subOpRef = subplan.getNestedPlans().get(0).getRoots().get(0);
             ILogicalOperator subOp = subOpRef.getValue();
+            if (subOp.getOperatorTag() == LogicalOperatorTag.AGGREGATE) {
+                AggregateOperator aggregateOperator = (AggregateOperator) subOp;
+                aggregateVariable = aggregateOperator.getVariables().get(0);
+                if (aggregateOperator.getExpressions().get(0).getValue().toString().equals("empty-stream()")) {
+                    quantifier = 1; // every
+                } else {
+                    quantifier = 0; // some
+                }
+            }
             rewritePre(subOpRef, context);
             while (subOp.getInputs() != null && !subOp.getInputs().isEmpty()) {
                 subOpRef = subOp.getInputs().get(0);
@@ -118,14 +124,25 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
         op = opRef.getValue();
         if (op.getOperatorTag() == LogicalOperatorTag.SUBPLAN) {
             final SubplanOperator subplan = (SubplanOperator) op;
+
             boolean changed = false;
             Mutable<ILogicalOperator> subOpRef = subplan.getNestedPlans().get(0).getRoots().get(0);
             ILogicalOperator subOp = subOpRef.getValue();
+
+            // check if the subplan should be removed
+            removeSubplan = true;
+            checkRemoveSubplanPattern(subOp, 0);
+
             changed |= rewritePost(subOpRef, context);
+            LogicalVariable aggregateVariable = null;
             while (subOp.getInputs() != null && !subOp.getInputs().isEmpty()) {
                 subOpRef = subOp.getInputs().get(0);
                 subOp = subOpRef.getValue();
                 changed |= rewritePost(subOpRef, context);
+            }
+            if (removeSubplan) {
+                opRef.setValue(opRef.getValue().getInputs().get(0).getValue());
+
             }
             return changed;
         } else if (op.getOperatorTag() != LogicalOperatorTag.SELECT
@@ -139,20 +156,8 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
             final SelectOperator selectOp = (SelectOperator) op;
             isSelect = true;
             changed = pushFieldAccessExpression(selectOp.getCondition(), context);
-            if (changed) {
-                // remove pattern nested-tuple-source ---> unnest ---> select
-                // remove select
-                Mutable<ILogicalOperator> childRef = op.getInputs().get(0);
-                opRef.setValue(childRef.getValue());
-                // remove unnest
-                if (opRef.getValue().getOperatorTag() == LogicalOperatorTag.UNNEST) {
-                    opRef.setValue(opRef.getValue().getInputs().get(0).getValue());
-                }
-                // remove nested tuple source
-//                if (opRef.getValue().getOperatorTag() == LogicalOperatorTag.NESTEDTUPLESOURCE) {
-//                    opRef.setValue(opRef.getValue().getInputs().get(0).getValue());
-//                }
-
+            if (selectOp.getCondition().getValue().toString().equals(aggregateVariable.toString())) {
+                opRef.setValue(opRef.getValue().getInputs().get(0).getValue());
             }
         } else {
             final AssignOperator assignOp = (AssignOperator) op;
@@ -358,6 +363,22 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
         }
 
         ref.setValue(newExpr);
+    }
+
+    private void checkRemoveSubplanPattern(ILogicalOperator op, int i) {
+        /**
+         * if there is pattern
+         * aggregate <== select <== unnest <== nested tuple source
+         * Then push down the filter and remove the subplan
+         */
+        if (op.getOperatorTag() != pattern[i]) {
+            removeSubplan = false;
+            return;
+        }
+        if (i > 3 || !op.getInputs().isEmpty()) {
+            return;
+        }
+        checkRemoveSubplanPattern(op.getInputs().get(0).getValue(), ++i);
     }
 
     private static DataSource getDatasourceInfo(MetadataProvider metadataProvider, AbstractScanOperator scanOp)
