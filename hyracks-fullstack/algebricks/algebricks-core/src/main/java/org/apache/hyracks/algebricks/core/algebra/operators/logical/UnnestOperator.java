@@ -34,7 +34,6 @@ public class UnnestOperator extends AbstractUnnestNonMapOperator {
     // would be returned by this operator
     private Mutable<ILogicalExpression> selectCondition;
 
-
     public UnnestOperator(LogicalVariable variable, Mutable<ILogicalExpression> expression) {
         super(variable, expression);
     }
@@ -50,7 +49,8 @@ public class UnnestOperator extends AbstractUnnestNonMapOperator {
         return visitor.visitUnnestOperator(this, arg);
     }
 
-    public UnnestOperator(LogicalVariable variable, Mutable<ILogicalExpression> expression, Mutable<ILogicalExpression> selectCondition) {
+    public UnnestOperator(LogicalVariable variable, Mutable<ILogicalExpression> expression,
+            Mutable<ILogicalExpression> selectCondition) {
         super(variable, expression);
         this.selectCondition = selectCondition;
     }

@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.sun.org.apache.bcel.internal.generic.Select;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.lang.common.util.FunctionUtil;
 import org.apache.asterix.metadata.declared.DataSource;
@@ -69,9 +68,9 @@ public class PushFieldAccessToDataScan implements IAlgebraicRewriteRule {
     private int quantifier = -1;
 
     // subplan pattern to remove
-    private LogicalOperatorTag[] pattern = {LogicalOperatorTag.AGGREGATE, LogicalOperatorTag.SELECT, LogicalOperatorTag.UNNEST, LogicalOperatorTag.NESTEDTUPLESOURCE};
+    private LogicalOperatorTag[] pattern = { LogicalOperatorTag.AGGREGATE, LogicalOperatorTag.SELECT,
+            LogicalOperatorTag.UNNEST, LogicalOperatorTag.NESTEDTUPLESOURCE };
     private boolean removeSubplan = false;
-
 
     @Override
     public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context)

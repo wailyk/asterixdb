@@ -44,7 +44,8 @@ public class AsterixTupleFilterFactory implements ITupleFilterFactory {
 
     @Override
     public ITupleFilter createTupleFilter(IHyracksTaskContext ctx) throws HyracksDataException {
-        return new AsterixTupleFilter(ctx, evalFactory, boolInspectorFactory.createBinaryBooleanInspector(ctx), quantifier);
+        return new AsterixTupleFilter(ctx, evalFactory, boolInspectorFactory.createBinaryBooleanInspector(ctx),
+                quantifier);
     }
 
 }

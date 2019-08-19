@@ -19,9 +19,10 @@
 
 package org.apache.asterix.runtime.base;
 
+import java.io.IOException;
+
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.runtime.evaluators.common.ListAccessor;
-import org.apache.asterix.runtime.exceptions.TypeMismatchException;
 import org.apache.hyracks.algebricks.data.IBinaryBooleanInspector;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
@@ -32,8 +33,6 @@ import org.apache.hyracks.data.std.primitive.VoidPointable;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import org.apache.hyracks.storage.am.common.api.ITupleFilter;
-
-import java.io.IOException;
 
 public class AsterixTupleFilter implements ITupleFilter {
     private final IBinaryBooleanInspector boolInspector;
@@ -68,7 +67,7 @@ public class AsterixTupleFilter implements ITupleFilter {
                 res = boolInspector.getBooleanValue(cur.getByteArray(), cur.getStartOffset(), cur.getLength());
                 // if the quantifier is some
                 if (quantifier == 0 && res) {
-                   return true;
+                    return true;
                 }
                 // if the quantifier is every
                 if (quantifier == 1 && !res) {
@@ -91,8 +90,7 @@ public class AsterixTupleFilter implements ITupleFilter {
     public void init(IPointable p) throws HyracksDataException {
         metUnknown = false;
         byte typeTag = p.getByteArray()[p.getStartOffset()];
-        if (typeTag == ATypeTag.SERIALIZED_MISSING_TYPE_TAG
-                || typeTag == ATypeTag.SERIALIZED_NULL_TYPE_TAG) {
+        if (typeTag == ATypeTag.SERIALIZED_MISSING_TYPE_TAG || typeTag == ATypeTag.SERIALIZED_NULL_TYPE_TAG) {
             metUnknown = true;
             return;
         }

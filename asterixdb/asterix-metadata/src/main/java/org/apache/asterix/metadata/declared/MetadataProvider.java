@@ -1097,7 +1097,8 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
             prevAdditionalFilteringKeys.add(prevAdditionalFilteringKey);
         }
         // todo: should get quantifier value from the outside
-        AsterixTupleFilterFactory filterFactory = createTupleFilterFactory(inputSchemas, typeEnv, filterExpr, -1, context);
+        AsterixTupleFilterFactory filterFactory =
+                createTupleFilterFactory(inputSchemas, typeEnv, filterExpr, -1, context);
         switch (secondaryIndex.getIndexType()) {
             case BTREE:
                 return getBTreeRuntime(dataverseName, datasetName, indexName, propagatedSchema, primaryKeys,

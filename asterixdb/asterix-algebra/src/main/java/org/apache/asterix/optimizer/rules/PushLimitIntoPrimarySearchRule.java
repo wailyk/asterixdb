@@ -41,7 +41,6 @@ import org.apache.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
 import org.apache.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.*;
-import org.apache.hyracks.algebricks.core.algebra.operators.physical.SubplanPOperator;
 import org.apache.hyracks.algebricks.core.algebra.util.OperatorPropertiesUtil;
 import org.apache.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 import org.apache.hyracks.algebricks.rewriter.rules.InlineVariablesRule;
@@ -58,6 +57,7 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
     private final List<AbstractScanOperator> scanOps = new ArrayList<>();
     //Datasets payload variables
     private final List<LogicalVariable> recordVariables = new ArrayList<>();
+
     @Override
     public boolean rewritePost(Mutable<ILogicalOperator> opRef, IOptimizationContext context) {
         return false;
@@ -69,24 +69,22 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
         ILogicalOperator op = opRef.getValue();
         boolean changed = false;
         Integer outputLimit = -1;
-         if (op.getOperatorTag() != LogicalOperatorTag.LIMIT) {
-             if (op.getOperatorTag() == LogicalOperatorTag.SELECT) {
-                 changed = rewriteSelect(opRef, outputLimit, context);
-             } else if (op.getOperatorTag() == LogicalOperatorTag.SUBPLAN) {
-                 final SubplanOperator subplan = (SubplanOperator) op;
-                 Mutable<ILogicalOperator> subOpRef = subplan.getNestedPlans().get(0).getRoots().get(0);
-                 ILogicalOperator subOp = subOpRef.getValue();
-                 rewritePre(subOpRef, context);
-                 while (subOp.getInputs() != null && !subOp.getInputs().isEmpty()) {
-                     subOpRef = subOp.getInputs().get(0);
-                     subOp = subOpRef.getValue();
-                     rewritePre(subOpRef, context);
-                 }
-             }
+        if (op.getOperatorTag() != LogicalOperatorTag.LIMIT) {
+            if (op.getOperatorTag() == LogicalOperatorTag.SELECT) {
+                changed = rewriteSelect(opRef, outputLimit, context);
+            } else if (op.getOperatorTag() == LogicalOperatorTag.SUBPLAN) {
+                final SubplanOperator subplan = (SubplanOperator) op;
+                Mutable<ILogicalOperator> subOpRef = subplan.getNestedPlans().get(0).getRoots().get(0);
+                ILogicalOperator subOp = subOpRef.getValue();
+                rewritePre(subOpRef, context);
+                while (subOp.getInputs() != null && !subOp.getInputs().isEmpty()) {
+                    subOpRef = subOp.getInputs().get(0);
+                    subOp = subOpRef.getValue();
+                    rewritePre(subOpRef, context);
+                }
+            }
             return changed;
         }
-
-
 
         if (context.checkIfInDontApplySet(this, op)) {
             return false;
@@ -109,8 +107,7 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
             // if changed, delete the limit operator
             if (changed)
                 opRef.setValue(opRef.getValue().getInputs().get(0).getValue());
-        }
-        else {
+        } else {
             changed = setLimitForScanOrUnnestMap(childOp.getValue(), outputLimit);
             if (changed)
                 opRef.setValue(opRef.getValue().getInputs().get(0).getValue());
@@ -120,7 +117,7 @@ public class PushLimitIntoPrimarySearchRule implements IAlgebraicRewriteRule {
         }
         return changed;
     }
-    
+
     private boolean rewriteSelect(Mutable<ILogicalOperator> op, int outputLimit, IOptimizationContext context)
             throws AlgebricksException {
         SelectOperator select = (SelectOperator) op.getValue();
